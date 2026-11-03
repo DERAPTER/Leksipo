@@ -320,6 +320,7 @@ struct StatsRepositoryTests {
         let s = try repos.stats.settings()
         s.unlock("cards_10")
         
+        try repos.container.mainContext.save()
         try repos.stats.resetAllStats()
         
         #expect(try repos.stats.settings().isUnlocked("cards_10") == true)

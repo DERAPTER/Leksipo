@@ -8,6 +8,8 @@
 import Foundation
 
 struct BackupRoot: Codable {
+    // nil — старый экспорт 2.9.0; 1 — первый явно версионированный формат.
+    var schemaVersion: Int? = 1
     let version: String
     let exportDate: Date
     let cards: [BackupCard]
@@ -47,6 +49,9 @@ struct BackupDailyStat: Codable {
     let solvedCount: Int
     let goalCompleted: Bool
     let srsCleared: Bool
+    var srsNewCardsIntroduced: Int? = nil
+    var srsReviewCount: Int? = nil
+    var srsNextDueDayKey: String? = nil
 }
 
 struct BackupUserSettings: Codable {

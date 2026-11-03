@@ -17,10 +17,12 @@ final class DailyStat {
     var solvedCount: Int
     var goalCompleted: Bool
     
-    /// Разгребены ли все SRS-карточки в этот день.
-    /// Используется только для подсчёта `srsStreak`, на «активный день»
-    /// и на достижения `goal_X` не влияет.
+    /// Выполнена ли дневная SRS-очередь, включая день без назначений.
+    /// На достижения `goal_X` не влияет; в календаре показана отдельно от цели.
     var srsCleared: Bool = false
+    var srsNewCardsIntroduced: Int = 0
+    var srsReviewCount: Int = 0
+    var srsNextDueDayKey: String? = nil
     
     init(
         date: Date,
@@ -29,17 +31,13 @@ final class DailyStat {
         srsCleared: Bool = false
     ) {
         self.dateKey = Self.makeKey(for: date)
-        self.date = Calendar.current.startOfDay(for: date)
+        self.date = StudyDay.calendar.startOfDay(for: date)
         self.solvedCount = solvedCount
         self.goalCompleted = goalCompleted
         self.srsCleared = srsCleared
     }
     
     static func makeKey(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = .current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: date)
+        StudyDay.key(for: date)
     }
 }

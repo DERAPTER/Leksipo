@@ -35,3 +35,11 @@
 //"widget_start_streak" = "Start your learning streak today";
 //"widget_1_day_learning" = "1 day of consistent learning";
 //"widget_days_learning" = "%d days of consistent learning";
+
+"widget_outdated" = "Данные устарели";
+"widget_unavailable" = "Данные недоступны";
+"widget_not_ready" = "Откройте English Words";
+"widget_open_to_refresh" = "Откройте приложение для обновления SRS.";
+
+"widget_display_name" = "Повторение SRS";
+"widget_description" = "Карточки к повторению и серия занятий.";

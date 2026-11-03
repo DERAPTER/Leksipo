@@ -43,15 +43,58 @@ struct SRSWidgetEntryView: View {
         ZStack {
             colors.background.ignoresSafeArea()
             Group {
+                if case .current = entry.state {
                 switch family {
                 case .systemSmall:
                     smallView
                 default:
                     mediumView
                 }
+                } else {
+                    unavailableView
+                }
             }
             .padding(16)
             .widgetURL(URL(string: "englishwords://srs"))
+        }
+    }
+
+    private func localized(_ key: String) -> String {
+        SRSWidgetText.string(key)
+    }
+
+    private var unavailableView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: statusIcon)
+                .font(.title2)
+                .foregroundStyle(colors.accent)
+            Text(localized(statusTitle))
+                .font(.headline)
+                .foregroundStyle(colors.textPrimary)
+            Text(localized("widget_open_to_refresh"))
+                .font(.caption)
+                .foregroundStyle(colors.textSecondary)
+
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .environment(\.locale, Locale(identifier: SRSWidgetStore.loadLanguageCode()))
+    }
+
+    private var statusTitle: String {
+        switch entry.state {
+        case .stale: return "widget_outdated"
+        case .unavailable: return "widget_unavailable"
+        case .missing: return "widget_not_ready"
+        case .current: return "widget_time_to_review"
+        }
+    }
+
+    private var statusIcon: String {
+        switch entry.state {
+        case .stale: return "clock.badge.exclamationmark"
+        case .unavailable: return "exclamationmark.triangle"
+        case .missing: return "arrow.clockwise"
+        case .current: return iconName
         }
     }
 
@@ -85,13 +128,13 @@ struct SRSWidgetEntryView: View {
 
             HStack(alignment: .bottom, spacing: 2) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(hasDue ? "widget_cards_due" : "widget_day_streak")
+                    Text(localized(hasDue ? "widget_cards_due" : "widget_day_streak"))
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(colors.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
-                    Text(hasDue ? "widget_lets_review" : "widget_keep_it_up")
+                    Text(localized(hasDue ? "widget_lets_review" : "widget_keep_it_up"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(colors.textSecondary)
                         .lineLimit(1)
@@ -127,7 +170,7 @@ struct SRSWidgetEntryView: View {
                 Spacer(minLength: 0)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(hasDue ? "widget_time_to_review" : "widget_review_streak")
+                    Text(localized(hasDue ? "widget_time_to_review" : "widget_review_streak"))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(colors.textPrimary)
                         .lineLimit(1)
@@ -144,7 +187,7 @@ struct SRSWidgetEntryView: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: hasDue ? "sparkles" : "checkmark.circle.fill")
-                    Text(hasDue ? "widget_ready_when_you_are" : "widget_all_caught_up")
+                    Text(localized(hasDue ? "widget_ready_when_you_are" : "widget_all_caught_up"))
                 }
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(stateColor)
@@ -170,17 +213,17 @@ struct SRSWidgetEntryView: View {
     private var subtitle: String {
         if hasDue {
             return entry.snapshot.dueToday == 1
-                ? String(localized: "widget_card_waiting")
-                : String(format: String(localized: "widget_cards_waiting"), entry.snapshot.dueToday)
+                ? localized("widget_card_waiting")
+                : String(format: localized("widget_cards_waiting"), entry.snapshot.dueToday)
         }
 
         if entry.snapshot.srsStreak == 0 {
-            return String(localized: "widget_start_streak")
+            return localized("widget_start_streak")
         }
 
         return entry.snapshot.srsStreak == 1
-            ? String(localized: "widget_1_day_learning")
-            : String(format: String(localized: "widget_days_learning"), entry.snapshot.srsStreak)
+            ? localized("widget_1_day_learning")
+            : String(format: localized("widget_days_learning"), entry.snapshot.srsStreak)
     }
 }
 

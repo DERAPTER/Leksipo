@@ -11,9 +11,17 @@ import SwiftData
 @MainActor
 final class SwiftDataCardRepository: CardRepository {
     private let context: ModelContext
+    private let transaction: PersistenceTransaction
+    private let calendar: Calendar
+    private let defaults: UserDefaults
+    private let now: () -> Date
     
-    init(context: ModelContext) {
+    init(context: ModelContext, transaction: PersistenceTransaction? = nil, calendar: Calendar = StudyDay.calendar, defaults: UserDefaults = .standard, now: @escaping () -> Date = { .now }) {
         self.context = context
+        self.calendar = calendar
+        self.defaults = defaults
+        self.now = now
+        self.transaction = transaction ?? PersistenceTransaction(context: context)
     }
     
     // MARK: - Fetch
@@ -127,26 +135,31 @@ final class SwiftDataCardRepository: CardRepository {
         translatedDescription: String,
         groups: [CardGroup]
     ) throws -> Card {
-        let trimmedOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmedOrigin.isEmpty, !trimmedTranslated.isEmpty else {
-            throw RepositoryError.invalidInput(reason: "Слово и перевод не могут быть пустыми")
+        return try transaction.perform {
+            groups.forEach { transaction.track($0) }
+            let trimmedOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !trimmedOrigin.isEmpty, !trimmedTranslated.isEmpty else {
+                throw RepositoryError.invalidInput(reason: "Слово и перевод не могут быть пустыми")
+            }
+
+            let trimmedOriginDesc = originDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTranslatedDesc = translatedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let card = Card(
+                origin: trimmedOrigin,
+                translated: trimmedTranslated,
+                originDescription: trimmedOriginDesc,
+                translatedDescription: trimmedTranslatedDesc,
+                dateAdded: now()
+            )
+            card.groups = groups
+            context.insert(card)
+            try noteNewSRSCard(on: card.dateAdded)
+
+            return card
         }
-        
-        let trimmedOriginDesc = originDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedTranslatedDesc = translatedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        let card = Card(
-            origin: trimmedOrigin,
-            translated: trimmedTranslated,
-            originDescription: trimmedOriginDesc,
-            translatedDescription: trimmedTranslatedDesc
-        )
-        card.groups = groups
-        context.insert(card)
-        try save()
-        return card
     }
     
     func update(
@@ -157,52 +170,66 @@ final class SwiftDataCardRepository: CardRepository {
         translatedDescription: String,
         groups: [CardGroup]
     ) throws {
-        let trimmedOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmedOrigin.isEmpty, !trimmedTranslated.isEmpty else {
-            throw RepositoryError.invalidInput(reason: "Слово и перевод не могут быть пустыми")
+        return try transaction.perform {
+            (card.groups + groups).forEach { transaction.track($0) }
+            transaction.track(card)
+            let trimmedOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !trimmedOrigin.isEmpty, !trimmedTranslated.isEmpty else {
+                throw RepositoryError.invalidInput(reason: "Слово и перевод не могут быть пустыми")
+            }
+
+            card.originWord = trimmedOrigin
+            card.translatedWord = trimmedTranslated
+            card.originDescription = originDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.translatedDescription = translatedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            card.groups = groups
+
         }
-        
-        card.originWord = trimmedOrigin
-        card.translatedWord = trimmedTranslated
-        card.originDescription = originDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        card.translatedDescription = translatedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        card.groups = groups
-        try save()
     }
     
     func toggleFavourite(_ card: Card) throws {
-        card.isFavourite.toggle()
-        try save()
+        return try transaction.perform {
+            transaction.track(card)
+            card.isFavourite.toggle()
+
+        }
     }
     
     func delete(_ card: Card) throws {
-        context.delete(card)
-        try save()
+        return try transaction.perform {
+            card.groups.forEach { transaction.track($0) }
+            transaction.track(card)
+            context.delete(card)
+
+        }
     }
     
     func recordAnswer(_ card: Card, correct: Bool) throws {
-        if correct {
-            card.correctCount += 1
-        } else {
-            card.wrongCount += 1
+        return try transaction.perform {
+            transaction.track(card)
+            if correct {
+                card.correctCount += 1
+            } else {
+                card.wrongCount += 1
+            }
+
         }
-        try save()
     }
     
     // MARK: - Validation
     
     func exists(origin: String, translated: String, excluding cardID: UUID?) throws -> Bool {
-        let lowerOrigin = origin.lowercased()
-        let lowerTranslated = translated.lowercased()
+        let lowerOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let lowerTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
         do {
             let all = try context.fetch(FetchDescriptor<Card>())
             return all.contains { card in
                 if let excludeID = cardID, card.id == excludeID { return false }
-                return card.originWord.lowercased() == lowerOrigin &&
-                       card.translatedWord.lowercased() == lowerTranslated
+                return card.originWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowerOrigin &&
+                       card.translatedWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowerTranslated
             }
         } catch {
             throw RepositoryError.fetchFailed(underlying: error)
@@ -212,108 +239,110 @@ final class SwiftDataCardRepository: CardRepository {
     // MARK: - SRS (SM-2)
     
     func fetchDueToday(on date: Date, newCardsLimit: Int) throws -> [Card] {
-        let calendar = Calendar.current
-        let endOfDay = calendar.date(
-            byAdding: .day,
-            value: 1,
-            to: calendar.startOfDay(for: date)
-        ) ?? date
-        
+        let end = StudyDay.end(of: date, calendar: calendar)
         let all = try fetchAll()
-        
-        var due: [Card] = []
-        var newOnes: [Card] = []
-        
-        for card in all {
-            if card.isNewInSRS {
-                newOnes.append(card)
-            } else if let next = card.nextReviewDate, next < endOfDay {
-                due.append(card)
+        let remaining = max(0, max(0, newCardsLimit) - (try dailyStat(on: date)?.srsNewCardsIntroduced ?? 0))
+        let due = all.filter { !$0.isNewInSRS && ($0.nextReviewDate.map { $0 < end } ?? false) }
+            .sorted {
+                if $0.nextReviewDate != $1.nextReviewDate { return ($0.nextReviewDate ?? .distantPast) < ($1.nextReviewDate ?? .distantPast) }
+                return $0.id.uuidString < $1.id.uuidString
             }
+        let newCards = all.filter(\.isNewInSRS).sorted {
+            if $0.dateAdded != $1.dateAdded { return $0.dateAdded < $1.dateAdded }
+            return $0.id.uuidString < $1.id.uuidString
         }
-        
-        // Сначала просроченные, потом новые — но не больше лимита
-        let limitedNew = Array(newOnes.prefix(newCardsLimit))
-        return due + limitedNew
+        return due + newCards.prefix(remaining)
     }
-    
+
     func dueTodayCount(on date: Date, newCardsLimit: Int) throws -> Int {
         try fetchDueToday(on: date, newCardsLimit: newCardsLimit).count
     }
     
     func recordSRSReview(_ card: Card, quality: Int, on date: Date) throws {
-        let prediction = SRSAlgorithm.predict(
-            quality: quality,
-            currentEaseFactor: card.easeFactor,
-            currentIntervalDays: card.intervalDays,
-            currentRepetitions: card.repetitions,
-            from: date
-        )
-        
-        card.intervalDays = prediction.intervalDays
-        card.repetitions = prediction.repetitions
-        card.easeFactor = prediction.easeFactor
-        card.nextReviewDate = prediction.nextReviewDate
-        card.lastReviewDate = date
-        
-        if quality >= 3 {
-            card.correctCount += 1
-        } else {
-            card.wrongCount += 1
+        return try transaction.perform {
+            transaction.track(card)
+            let stat: DailyStat
+            if let existing = try dailyStat(on: date) {
+                stat = existing
+                transaction.track(stat)
+            } else {
+                stat = DailyStat(date: date)
+                stat.dateKey = StudyDay.key(for: date, calendar: calendar)
+                stat.date = calendar.startOfDay(for: date)
+                context.insert(stat)
+            }
+            if card.isNewInSRS { stat.srsNewCardsIntroduced += 1 }
+            stat.srsReviewCount += 1
+            let prediction = SRSAlgorithm.predict(
+                quality: quality,
+                currentEaseFactor: card.easeFactor,
+                currentIntervalDays: card.intervalDays,
+                currentRepetitions: card.repetitions,
+                from: date,
+                calendar: calendar
+            )
+
+            card.intervalDays = prediction.intervalDays
+            card.repetitions = prediction.repetitions
+            card.easeFactor = prediction.easeFactor
+            card.nextReviewDate = prediction.nextReviewDate
+            card.lastReviewDate = date
+
+            if quality >= 3 {
+                card.correctCount += 1
+            } else {
+                card.wrongCount += 1
+            }
+
+
         }
-        
-        try save()
     }
     
     func srsOverview(on date: Date, newCardsLimit: Int) throws -> SRSOverview {
-        let calendar = Calendar.current
-        let endOfDay = calendar.date(
-            byAdding: .day,
-            value: 1,
-            to: calendar.startOfDay(for: date)
-        ) ?? date
-        
+        let end = StudyDay.end(of: date, calendar: calendar)
         let all = try fetchAll()
-        
-        var overdueCount = 0
-        var newOnesCount = 0
+        let queue = try fetchDueToday(on: date, newCardsLimit: newCardsLimit)
         var futureByDay: [Date: Int] = [:]
-        
-        for card in all {
-            if card.isNewInSRS {
-                newOnesCount += 1
-            } else if let next = card.nextReviewDate {
-                if next < endOfDay {
-                    overdueCount += 1
-                } else {
-                    let day = calendar.startOfDay(for: next)
-                    futureByDay[day, default: 0] += 1
-                }
+        for card in all where !card.isNewInSRS {
+            if let next = card.nextReviewDate, next >= end {
+                futureByDay[calendar.startOfDay(for: next), default: 0] += 1
             }
         }
-        
-        let newCardsAvailable = min(newOnesCount, newCardsLimit)
-        let dueToday = overdueCount + newCardsAvailable
-        
+        let newAvailable = queue.filter(\.isNewInSRS).count
+        let remainingNew = all.filter(\.isNewInSRS).count - newAvailable
+        if remainingNew > 0 && newCardsLimit > 0 {
+            // После исчерпания сегодняшнего лимита новые слова доступны завтра.
+            futureByDay[end, default: 0] += min(remainingNew, newCardsLimit)
+        }
         let nextDate = futureByDay.keys.min()
-        let nextCount = nextDate.flatMap { futureByDay[$0] } ?? 0
-        
         return SRSOverview(
-            dueToday: dueToday,
-            overdueCount: overdueCount,
-            newCardsAvailable: newCardsAvailable,
-            nextReviewDate: nextDate,
-            nextReviewCount: nextCount
+            dueToday: queue.count, overdueCount: queue.count - newAvailable,
+            newCardsAvailable: newAvailable, nextReviewDate: nextDate,
+            nextReviewCount: nextDate.flatMap { futureByDay[$0] } ?? 0
         )
     }
-    
-    // MARK: - Private
-    
-    private func save() throws {
-        do {
-            try context.save()
-        } catch {
-            throw RepositoryError.saveFailed(underlying: error)
+
+    private func noteNewSRSCard(on date: Date) throws {
+        let limit = defaults.integer(forKey: "srsNewCardsPerDay")
+        let effectiveLimit = limit > 0 ? limit : 20
+        let today = try dailyStat(on: date)
+        let hasRoomToday = (today?.srsNewCardsIntroduced ?? 0) < effectiveLimit
+        let day = hasRoomToday ? calendar.startOfDay(for: date) : StudyDay.end(of: date, calendar: calendar)
+        let key = StudyDay.key(for: day, calendar: calendar)
+        if hasRoomToday, let today, today.srsCleared {
+            transaction.track(today)
+            today.srsCleared = false
         }
+        let latest = try context.fetch(FetchDescriptor<DailyStat>())
+            .filter { $0.srsCleared && $0.dateKey <= key }.max { $0.dateKey < $1.dateKey }
+        if let latest, latest.srsNextDueDayKey.map({ $0 > key }) ?? false {
+            transaction.track(latest)
+            latest.srsNextDueDayKey = key
+        }
+    }
+
+    private func dailyStat(on date: Date) throws -> DailyStat? {
+        let key = StudyDay.key(for: date, calendar: calendar)
+        return try context.fetch(FetchDescriptor<DailyStat>(predicate: #Predicate { $0.dateKey == key })).first
     }
 }

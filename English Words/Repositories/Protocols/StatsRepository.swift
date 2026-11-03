@@ -11,6 +11,7 @@ import Foundation
 protocol StatsRepository {
     // Settings
     func settings() throws -> UserSettings
+    func unlockAchievements(_ ids: [String], on date: Date) throws
     func updateDailyGoal(_ goal: Int) throws
     
     // Recording
@@ -20,8 +21,13 @@ protocol StatsRepository {
     /// Идемпотентно: повторный вызов в тот же день ничего не меняет.
     func markSRSCleared(on date: Date) throws
     
+    func updateSRSStatus(on date: Date, hasDueCards: Bool, nextReviewDate: Date?) throws
+    func currentStreak(on date: Date) throws -> Int
+    func currentSRSStreak(on date: Date) throws -> Int
+
     // Activity
     func activity(for date: Date) throws -> DailyStat?
+    /// Отрицательный monthsBack запрашивает всю сохранённую историю.
     func activityHistory(monthsBack: Int) throws -> [DailyStat]
     func isDateActive(_ date: Date) throws -> Bool
     func totalDaysGoalCompleted() throws -> Int

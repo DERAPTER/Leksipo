@@ -11,9 +11,11 @@ import SwiftData
 @MainActor
 final class SwiftDataGroupRepository: GroupRepository {
     private let context: ModelContext
+    private let transaction: PersistenceTransaction
     
-    init(context: ModelContext) {
+    init(context: ModelContext, transaction: PersistenceTransaction? = nil) {
         self.context = context
+        self.transaction = transaction ?? PersistenceTransaction(context: context)
     }
     
     // MARK: - Fetch
@@ -54,57 +56,75 @@ final class SwiftDataGroupRepository: GroupRepository {
     // MARK: - Mutations
     
     func create(name: String) throws -> CardGroup {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw RepositoryError.invalidInput(reason: "Название группы не может быть пустым")
+        return try transaction.perform {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw RepositoryError.invalidInput(reason: "Название группы не может быть пустым")
+            }
+
+            if try nameExists(trimmed, excluding: nil) {
+                throw RepositoryError.invalidInput(reason: "Группа с таким названием уже существует")
+            }
+
+            let nextIndex = try nextOrderIndex()
+            let group = CardGroup(name: trimmed, orderIndex: nextIndex)
+            context.insert(group)
+
+            return group
         }
-        
-        if try nameExists(trimmed, excluding: nil) {
-            throw RepositoryError.invalidInput(reason: "Группа с таким названием уже существует")
-        }
-        
-        let nextIndex = try nextOrderIndex()
-        let group = CardGroup(name: trimmed, orderIndex: nextIndex)
-        context.insert(group)
-        try save()
-        return group
     }
     
     func rename(_ group: CardGroup, to newName: String) throws {
-        guard !group.isSystem else {
-            throw RepositoryError.invalidInput(reason: "Системную группу нельзя переименовать")
+        return try transaction.perform {
+            transaction.track(group)
+            for card in group.cards { transaction.track(card) }
+            guard !group.isSystem else {
+                throw RepositoryError.invalidInput(reason: "Системную группу нельзя переименовать")
+            }
+
+            let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw RepositoryError.invalidInput(reason: "Название группы не может быть пустым")
+            }
+
+            if try nameExists(trimmed, excluding: group.id) {
+                throw RepositoryError.invalidInput(reason: "Группа с таким названием уже существует")
+            }
+
+            group.name = trimmed
+
         }
-        
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw RepositoryError.invalidInput(reason: "Название группы не может быть пустым")
-        }
-        
-        if try nameExists(trimmed, excluding: group.id) {
-            throw RepositoryError.invalidInput(reason: "Группа с таким названием уже существует")
-        }
-        
-        group.name = trimmed
-        try save()
     }
     
     func delete(_ group: CardGroup) throws {
-        guard !group.isSystem else {
-            throw RepositoryError.invalidInput(reason: "Системную группу нельзя удалить")
+        return try transaction.perform {
+            transaction.track(group)
+            for card in group.cards { transaction.track(card) }
+            guard !group.isSystem else {
+                throw RepositoryError.invalidInput(reason: "Системную группу нельзя удалить")
+            }
+            context.delete(group)
+
         }
-        context.delete(group)
-        try save()
     }
     
     func addCard(_ card: Card, to group: CardGroup) throws {
-        guard !card.groups.contains(where: { $0.id == group.id }) else { return }
-        card.groups.append(group)
-        try save()
+        return try transaction.perform {
+            transaction.track(group)
+            transaction.track(card)
+            guard !card.groups.contains(where: { $0.id == group.id }) else { return }
+            card.groups.append(group)
+
+        }
     }
     
     func removeCard(_ card: Card, from group: CardGroup) throws {
-        card.groups.removeAll { $0.id == group.id }
-        try save()
+        return try transaction.perform {
+            transaction.track(group)
+            transaction.track(card)
+            card.groups.removeAll { $0.id == group.id }
+
+        }
     }
     
     // MARK: - Validation
@@ -137,11 +157,5 @@ final class SwiftDataGroupRepository: GroupRepository {
         }
     }
     
-    private func save() throws {
-        do {
-            try context.save()
-        } catch {
-            throw RepositoryError.saveFailed(underlying: error)
-        }
-    }
+
 }

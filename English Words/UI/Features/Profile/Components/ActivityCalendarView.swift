@@ -14,7 +14,7 @@ struct ActivityCalendarView: View {
     @State private var currentMonth: Date = Date()
     @State private var selectedDate: Date?
     
-    private let calendar = Calendar.current
+    private let calendar = StudyDay.calendar
     
     private var daysOfWeek: [String] {
         ["calendar_mon", "calendar_tue", "calendar_wed", "calendar_thu",
@@ -44,7 +44,7 @@ struct ActivityCalendarView: View {
         .cornerRadius(20)
         .shadow(color: .shadowColor, radius: 5, x: 0, y: 2)
         .sheet(item: $selectedDate) { date in
-            DayDetailSheet(date: date, isActive: isDateActive(date))
+            DayDetailSheet(date: date, stat: stat(for: date))
         }
     }
     
@@ -85,6 +85,8 @@ struct ActivityCalendarView: View {
                     DayCell(
                         date: date,
                         isActive: isDateActive(date),
+                        goalCompleted: stat(for: date)?.goalCompleted ?? false,
+                        srsCleared: stat(for: date)?.srsCleared ?? false,
                         isToday: calendar.isDateInToday(date),
                         onTap: { selectedDate = date }
                     )
@@ -97,8 +99,10 @@ struct ActivityCalendarView: View {
     }
     
     private var legend: some View {
-        HStack(spacing: 16) {
-            legendItem(color: .accent, text: "active_day".localized())
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
+            legendItem(color: .accent, text: "calendar_goal_completed".localized())
+            legendItem(color: .orange, text: "calendar_srs_completed".localized())
+            legendItem(color: .accent.opacity(0.4), text: "calendar_partial_progress".localized())
             legendItem(color: .stroke.opacity(0.3), text: "inactive_day".localized())
             legendItem(color: .accent.opacity(0.3), text: "today".localized(), stroke: .accent)
         }
@@ -123,6 +127,10 @@ struct ActivityCalendarView: View {
     
     // MARK: - Logic
     
+    private func stat(for date: Date) -> DailyStat? {
+        activityHistory.first { $0.dateKey == DailyStat.makeKey(for: date) }
+    }
+
     private var monthYearString: String {
         let formatter = DateFormatter()
         formatter.locale = LanguageManager.shared.currentLanguage.locale

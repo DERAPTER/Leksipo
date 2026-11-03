@@ -14,6 +14,8 @@ struct SolveSession: Codable, Equatable {
     var unsolvedIDs: [UUID]
     var successIDs: [UUID]
     var failIDs: [UUID]
+    var studyDayKey: String? = nil
+    var srsQualityCounts: [String: Int]? = nil
     
     var groupKey: SolveGroupKey? {
         SolveGroupKey(stringValue: groupKeyString)
@@ -71,7 +73,7 @@ struct SolveSession: Codable, Equatable {
     
     /// Сбросить всё и начать заново.
     mutating func restartAll(from allIDs: [UUID]) {
-        unsolvedIDs = allIDs.shuffled()
+        unsolvedIDs = groupKey == .srs ? allIDs : allIDs.shuffled()
         successIDs = []
         failIDs = []
     }
@@ -87,7 +89,7 @@ struct SolveSession: Codable, Equatable {
     
     init(groupKey: SolveGroupKey, cardIDs: [UUID]) {
         self.groupKeyString = groupKey.stringValue
-        self.unsolvedIDs = cardIDs.shuffled()
+        self.unsolvedIDs = groupKey == .srs ? cardIDs : cardIDs.shuffled()
         self.successIDs = []
         self.failIDs = []
     }

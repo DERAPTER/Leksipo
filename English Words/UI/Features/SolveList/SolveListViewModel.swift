@@ -82,7 +82,7 @@ final class SolveListViewModel {
         var solvedInSession = 0
         var hasUnfinished = false
         
-        if let session = sessionStore.load(for: key) {
+        if let session = try sessionStore.load(for: key) {
             let currentIDs = Set(cards.map(\.id))
             let validSolved = (session.successIDs + session.failIDs)
                 .filter { currentIDs.contains($0) }

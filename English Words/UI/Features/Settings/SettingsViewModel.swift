@@ -16,7 +16,7 @@ final class SettingsViewModel {
     // MARK: - State
     
     private(set) var storageSize: String = "…"
-    private(set) var errorMessage: String?
+    var errorMessage: String?
     
     var showResetStatsAlert = false
     var showDeleteAllAlert = false
@@ -40,18 +40,24 @@ final class SettingsViewModel {
     private let cardRepository: CardRepository
     private let groupRepository: GroupRepository
     private let statsRepository: StatsRepository
+    private let transaction: PersistenceTransaction
+    private let onRestore: () -> Void
     private let solveSessionStore: SolveSessionStore
     
     init(
         cardRepository: CardRepository,
         groupRepository: GroupRepository,
         statsRepository: StatsRepository,
-        solveSessionStore: SolveSessionStore
+        solveSessionStore: SolveSessionStore,
+        transaction: PersistenceTransaction,
+        onRestore: @escaping () -> Void
     ) {
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
         self.statsRepository = statsRepository
         self.solveSessionStore = solveSessionStore
+        self.transaction = transaction
+        self.onRestore = onRestore
     }
     
     // MARK: - Storage size
@@ -68,15 +74,12 @@ final class SettingsViewModel {
     
     func resetStatistics() {
         do {
-            try statsRepository.resetAllStats()
-            solveSessionStore.clearAll()
+            try transaction.perform {
+                try statsRepository.resetAllStats()
+                try solveSessionStore.clearAll()
+            }
             updateStorageSize()
             
-            // Обновляем виджет после сброса
-            SRSWidgetSnapshotWriter.refresh(
-                cardRepository: cardRepository,
-                statsRepository: statsRepository
-            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -86,28 +89,25 @@ final class SettingsViewModel {
     
     func deleteAllData() {
         do {
-            let cards = try cardRepository.fetchAll()
-            for card in cards {
-                try cardRepository.delete(card)
+            try transaction.perform {
+                let cards = try cardRepository.fetchAll()
+                for card in cards {
+                    try cardRepository.delete(card)
+                }
+
+                let groups = try groupRepository.fetchUserGroups()
+                for group in groups {
+                    try groupRepository.delete(group)
+                }
+
+                try statsRepository.resetAllStats()
+                try solveSessionStore.clearAll()
+
+                try statsRepository.updateDailyGoal(20)
             }
-            
-            let groups = try groupRepository.fetchUserGroups()
-            for group in groups {
-                try groupRepository.delete(group)
-            }
-            
-            try statsRepository.resetAllStats()
-            solveSessionStore.clearAll()
-            
-            try statsRepository.updateDailyGoal(20)
             
             updateStorageSize()
             
-            // Обновляем виджет после удаления
-            SRSWidgetSnapshotWriter.refresh(
-                cardRepository: cardRepository,
-                statsRepository: statsRepository
-            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -165,8 +165,8 @@ final class SettingsViewModel {
     func confirmRestore(context: ModelContext) {
         guard let data = pendingRestoreData else { return }
         do {
-            try BackupService.restoreBackup(from: data, context: context)
-            showBackupSuccessAlert = true
+            try BackupService.restoreBackup(from: data, context: context, transaction: transaction)
+            onRestore()
             updateStorageSize()
             pendingRestoreData = nil
         } catch {

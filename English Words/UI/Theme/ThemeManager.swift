@@ -39,6 +39,8 @@ final class ThemeManager {
     private init() {
         let raw = UserDefaults.standard.string(forKey: Self.storageKey) ?? AppTheme.beige.rawValue
         self.currentTheme = AppTheme(rawValue: raw) ?? .beige
+        SRSWidgetStore.saveTheme(currentTheme)
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     func setTheme(_ theme: AppTheme) {

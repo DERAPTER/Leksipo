@@ -27,6 +27,10 @@ final class UserSettings {
     /// Обновляется отдельно от `streak` через `StatsRepository.markSRSCleared`.
     var srsStreak: Int = 0
     
+    // Optional-поля позволяют открыть существующую базу без потери данных.
+    var solveSessionsData: Data? = nil
+    var legacyMigrationCompleted: Bool? = nil
+
     // Достижения
     var unlockedAchievementIDs: [String]
     var achievementUnlockDates: [String: Date]

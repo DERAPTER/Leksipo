@@ -1,37 +1,42 @@
-//
-//  SRSWidgetProvider.swift
-//  English Words Widgets
-//
-//  Created by Егор Халиков on 09.10.2026.
-//
-
 import WidgetKit
 import SwiftUI
 
 struct SRSWidgetEntry: TimelineEntry {
     let date: Date
-    let snapshot: SRSWidgetSnapshot
+    let state: SRSWidgetState
+    var snapshot: SRSWidgetSnapshot { state.snapshot ?? .empty }
+
+    init(date: Date, state: SRSWidgetState) { self.date = date; self.state = state }
+    init(date: Date, snapshot: SRSWidgetSnapshot) {
+        self.date = date
+        self.state = snapshot.isCurrent(at: date) ? .current(snapshot) : .stale(snapshot)
+    }
 }
 
 struct SRSWidgetProvider: TimelineProvider {
-    
     func placeholder(in context: Context) -> SRSWidgetEntry {
-        SRSWidgetEntry(date: .now, snapshot: .empty)
+        SRSWidgetEntry(date: .now, state: .missing)
     }
-    
+
     func getSnapshot(in context: Context, completion: @escaping (SRSWidgetEntry) -> Void) {
-        let snapshot = SRSWidgetStore.load()
-        completion(SRSWidgetEntry(date: .now, snapshot: snapshot))
+        completion(SRSWidgetEntry(date: .now, state: SRSWidgetStore.live.read(at: .now)))
     }
-    
+
     func getTimeline(in context: Context, completion: @escaping (Timeline<SRSWidgetEntry>) -> Void) {
-        let snapshot = SRSWidgetStore.load()
-        let entry = SRSWidgetEntry(date: .now, snapshot: snapshot)
-        
-        // Обновляем раз в час. Основные обновления приходят
-        // через WidgetCenter.reloadAllTimelines() из приложения.
-        let next = Calendar.current.date(byAdding: .hour, value: 1, to: .now) ?? .now
-        let timeline = Timeline(entries: [entry], policy: .after(next))
-        completion(timeline)
+        let now = Date.now
+        let state = SRSWidgetStore.live.read(at: now)
+        var entries = [SRSWidgetEntry(date: now, state: state)]
+        let nextHour = now.addingTimeInterval(3600)
+        var refresh = nextHour
+        if case .current(let snapshot) = state {
+            let midnight = Calendar.current.dateInterval(of: .day, for: now)?.end ?? nextHour
+            let expiry = min(snapshot.validUntil ?? snapshot.updatedAt.addingTimeInterval(6 * 3600), midnight)
+            if expiry > now {
+                entries.append(SRSWidgetEntry(date: expiry, state: .stale(snapshot)))
+                refresh = min(refresh, expiry)
+            }
+        }
+        // Заранее добавленная stale-entry не зависит от своевременного запуска provider.
+        completion(Timeline(entries: entries, policy: .after(refresh)))
     }
 }

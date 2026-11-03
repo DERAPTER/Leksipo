@@ -48,7 +48,8 @@ final class SolveViewModel {
     // MARK: - Alerts
     
     var showUnfinishedSessionAlert = false
-    private(set) var errorMessage: String?
+    var errorMessage: String?
+    private(set) var isProcessingAnswer = false
     
     // MARK: - Dependencies
     
@@ -58,6 +59,7 @@ final class SolveViewModel {
     private let statsRepository: StatsRepository
     private let sessionCoordinator: SolveSessionCoordinator
     private let achievementsService: AchievementsService
+    private let answerRecorder: AnswerRecordingService
     
     // MARK: - Constants
     
@@ -72,7 +74,8 @@ final class SolveViewModel {
         cardRepository: CardRepository,
         statsRepository: StatsRepository,
         sessionCoordinator: SolveSessionCoordinator,
-        achievementsService: AchievementsService
+        achievementsService: AchievementsService,
+        answerRecorder: AnswerRecordingService
     ) {
         self.key = key
         self.title = title
@@ -80,6 +83,7 @@ final class SolveViewModel {
         self.statsRepository = statsRepository
         self.sessionCoordinator = sessionCoordinator
         self.achievementsService = achievementsService
+        self.answerRecorder = answerRecorder
         
         self.session = SolveSession(groupKey: key, cardIDs: [])
     }
@@ -153,14 +157,17 @@ final class SolveViewModel {
     }
     
     func restartMistakesFromResult() {
-        session = sessionCoordinator.restartMistakes(session)
-        updateCurrentCard()
-        resetOffsets()
+        do {
+            session = try sessionCoordinator.restartMistakes(session)
+            updateCurrentCard()
+            resetOffsets()
+        } catch { errorMessage = error.localizedDescription }
     }
     
     // MARK: - Swipe handling
     
     func onDragChanged(_ value: DragGesture.Value) {
+        guard !isProcessingAnswer else { return }
         offsetOfCardX = value.translation.width
         offsetOfCardY = value.translation.height
         
@@ -194,6 +201,7 @@ final class SolveViewModel {
     }
     
     func onDragEnded(_ value: DragGesture.Value) -> SwipeDecision {
+        guard !isProcessingAnswer else { return .reset }
         let t = value.translation.width
         let p = value.predictedEndTranslation.width
         
@@ -220,6 +228,8 @@ final class SolveViewModel {
         guard let card = currentCard else { return }
         do {
             try cardRepository.toggleFavourite(card)
+            achievementsService.evaluate()
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -227,48 +237,30 @@ final class SolveViewModel {
     
     // MARK: - Private
     
-    private func commitCorrect() async {
-        guard let card = currentCard else {
+    private func commitCorrect() async { await commitAnswer(correct: true) }
+
+    private func commitWrong() async { await commitAnswer(correct: false) }
+
+    private func commitAnswer(correct: Bool) async {
+        guard !isProcessingAnswer, !Task.isCancelled, let card = currentCard else { return }
+        isProcessingAnswer = true
+        defer {
             resetOffsets()
-            return
+            updateCurrentCard()
+            isProcessingAnswer = false
         }
-        
         do {
-            try cardRepository.recordAnswer(card, correct: true)
-            _ = try statsRepository.recordSolved(on: .now)
-            _ = achievementsService.evaluate()
+            session = try answerRecorder.record(card: card, session: session, correct: correct)
         } catch {
             errorMessage = error.localizedDescription
-        }
-        
-        HapticService.shared.success()
-        
-        session = sessionCoordinator.markCorrect(session)
-        try? await Task.sleep(for: .milliseconds(200))
-        resetOffsets()
-        updateCurrentCard()
-    }
-    
-    private func commitWrong() async {
-        guard let card = currentCard else {
-            resetOffsets()
             return
         }
-        
-        do {
-            try cardRepository.recordAnswer(card, correct: false)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        
-        HapticService.shared.error()
-        
-        session = sessionCoordinator.markWrong(session)
-        try? await Task.sleep(for: .milliseconds(200))
-        resetOffsets()
-        updateCurrentCard()
+        errorMessage = nil
+        _ = achievementsService.evaluate()
+        if correct { HapticService.shared.success() } else { HapticService.shared.error() }
+        do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
     }
-    
+
     private func resetOffsets() {
         offsetOfCardX = 0
         offsetOfCardY = 0

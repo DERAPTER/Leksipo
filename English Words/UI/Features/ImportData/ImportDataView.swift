@@ -26,6 +26,8 @@ struct ImportDataView: View {
         _viewModel = State(initialValue: ImportDataViewModel(
             cardRepository: container.cardRepository,
             groupRepository: container.groupRepository,
+            transaction: container.transaction,
+            achievementsService: container.achievementsService,
             onComplete: onComplete
         ))
     }
@@ -201,11 +203,11 @@ struct ImportDataView: View {
             ) { result in
                 viewModel.handleFileSelection(result)
             }
-            .alert("import_duplicate_title".localized(), isPresented: $viewModel.showDuplicateAlert) {
+            .alert("import_preview_title".localized(), isPresented: $viewModel.showDuplicateAlert) {
                 Button("cancel".localized(), role: .cancel) { }
                 Button("ok".localized()) { viewModel.confirmImportWithDuplicates() }
             } message: {
-                Text("import_duplicate_message".localized())
+                Text(viewModel.previewMessage)
             }
             .alert("import_success_title".localized(), isPresented: $viewModel.showSuccessAlert) {
                 Button("ok".localized()) { dismiss() }

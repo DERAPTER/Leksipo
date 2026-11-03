@@ -127,8 +127,28 @@ struct EditCardView: View {
                 .font(.titleCustom)
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal)
+
+            if !viewModel.hasLoadedGroups {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("edit_card_groups_load_failed".localized())
+                        .font(.bodyCustom)
+                        .foregroundColor(.red)
+
+                    if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.captionCustom)
+                            .foregroundColor(.textSecondary)
+                    }
+
+                    Button("retry_action".localized()) {
+                        viewModel.onAppear()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.horizontal)
+            }
             
-            if !viewModel.selectedGroups.isEmpty {
+            if viewModel.hasLoadedGroups && !viewModel.selectedGroups.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("selected_groups".localized())
                         .font(.captionCustom)
@@ -148,7 +168,7 @@ struct EditCardView: View {
                 }
             }
             
-            if !viewModel.availableGroups.isEmpty {
+            if viewModel.hasLoadedGroups && !viewModel.availableGroups.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("available_groups".localized())
                         .font(.captionCustom)
@@ -168,7 +188,7 @@ struct EditCardView: View {
                 }
             }
             
-            if viewModel.selectedGroups.isEmpty && viewModel.availableGroups.isEmpty {
+            if viewModel.hasLoadedGroups && viewModel.selectedGroups.isEmpty && viewModel.availableGroups.isEmpty {
                 Text("no_groups_available".localized())
                     .font(.captionCustom)
                     .foregroundColor(.textSecondary)

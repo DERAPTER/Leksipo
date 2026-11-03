@@ -50,7 +50,13 @@ final class ImportDataViewModel {
     
     // MARK: - State
     
-    var jsonText: String = ""
+    var jsonText: String = "" {
+        didSet {
+            parsedGroups = []
+            showDuplicateAlert = false
+            showSuccessAlert = false
+        }
+    }
     var showFileImporter = false
     var errorMessage: String?
     
@@ -59,14 +65,19 @@ final class ImportDataViewModel {
     var successMessage = ""
     
     private var parsedGroups: [ImportGroupDTO] = []
+    private(set) var previewMessage = ""
+    private let achievementsService: AchievementsService?
     private let cardRepository: CardRepository
     private let groupRepository: GroupRepository
+    private let transaction: PersistenceTransaction
     private let onComplete: () -> Void
     
-    init(cardRepository: CardRepository, groupRepository: GroupRepository, onComplete: @escaping () -> Void) {
+    init(cardRepository: CardRepository, groupRepository: GroupRepository, transaction: PersistenceTransaction, achievementsService: AchievementsService? = nil, onComplete: @escaping () -> Void) {
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
         self.onComplete = onComplete
+        self.transaction = transaction
+        self.achievementsService = achievementsService
     }
     
     // MARK: - Paste from clipboard
@@ -89,7 +100,11 @@ final class ImportDataViewModel {
     func handleFileSelection(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
+            jsonText = ""
+            guard let url = urls.first else {
+                errorMessage = "import_error_file".localized()
+                return
+            }
             
             let didStartAccessing = url.startAccessingSecurityScopedResource()
             defer { if didStartAccessing { url.stopAccessingSecurityScopedResource() } }
@@ -107,106 +122,168 @@ final class ImportDataViewModel {
                 errorMessage = "import_error_file".localized()
             }
         case .failure:
+            jsonText = ""
             errorMessage = "import_error_file".localized()
         }
     }
     
-    // MARK: - Import Logic (без изменений)
-    
+    // MARK: - Import
+
     func startImport(from text: String) {
         errorMessage = nil
-        
-        guard let data = text.data(using: .utf8) else {
-            errorMessage = "import_error_format".localized()
-            return
-        }
-        
+        parsedGroups = []
+        showDuplicateAlert = false
+        showSuccessAlert = false
         do {
-            let decoder = JSONDecoder()
-            let groups = try decoder.decode([ImportGroupDTO].self, from: data)
-            
-            if groups.isEmpty {
+            let groups = try JSONDecoder().decode([ImportGroupDTO].self, from: Data(text.utf8))
+            guard !groups.isEmpty else {
                 errorMessage = "import_error_empty".localized()
                 return
             }
-            
-            let hasDuplicates = try checkForDuplicates(groups: groups)
-            self.parsedGroups = groups
-            
-            if hasDuplicates {
-                showDuplicateAlert = true
-            } else {
-                performImport(groups: groups, skipDuplicates: false)
+            parsedGroups = try normalized(groups)
+            previewMessage = try process(groups: parsedGroups, write: false).message + "\n\n" + "import_merge_rules".localized()
+            showDuplicateAlert = true
+        } catch let error as DecodingError {
+            let context: DecodingError.Context
+            switch error {
+            case .keyNotFound(let key, let value):
+                errorMessage = String(format: "import_error_field".localized(), path(value.codingPath + [key]))
+                return
+            case .dataCorrupted(let value), .typeMismatch(_, let value), .valueNotFound(_, let value): context = value
+            @unknown default:
+                errorMessage = "import_error_parse".localized()
+                return
             }
-            
-        } catch {
-            errorMessage = "import_error_parse".localized()
-        }
-    }
-    
-    func confirmImportWithDuplicates() {
-        performImport(groups: parsedGroups, skipDuplicates: true)
-    }
-    
-    private func checkForDuplicates(groups: [ImportGroupDTO]) throws -> Bool {
-        var hasDupes = false
-        
-        for group in groups {
-            if try groupRepository.nameExists(group.name, excluding: nil) {
-                hasDupes = true
-            }
-            
-            for card in group.cards {
-                if try cardRepository.exists(origin: card.origin, translated: card.translated, excluding: nil) {
-                    hasDupes = true
-                    break
-                }
-            }
-            if hasDupes { break }
-        }
-        return hasDupes
-    }
-    
-    private func performImport(groups: [ImportGroupDTO], skipDuplicates: Bool) {
-        do {
-            var importedCardsCount = 0
-            
-            for groupDTO in groups {
-                let existingGroup = try groupRepository.fetchUserGroups().first { $0.name == groupDTO.name }
-                let targetGroup: CardGroup
-                
-                if let existing = existingGroup {
-                    if skipDuplicates {
-                        targetGroup = existing
-                    } else {
-                        continue
-                    }
-                } else {
-                    targetGroup = try groupRepository.create(name: groupDTO.name)
-                }
-                
-                for cardDTO in groupDTO.cards {
-                    if skipDuplicates, try cardRepository.exists(origin: cardDTO.origin, translated: cardDTO.translated, excluding: nil) {
-                        continue
-                    }
-                    
-                    _ = try cardRepository.create(
-                        origin: cardDTO.origin,
-                        translated: cardDTO.translated,
-                        originDescription: cardDTO.originDescription ?? "",
-                        translatedDescription: cardDTO.translatedDescription ?? "",
-                        groups: [targetGroup]
-                    )
-                    importedCardsCount += 1
-                }
-            }
-            
-            successMessage = String(format: "import_success_message".localized(), importedCardsCount)
-            showSuccessAlert = true
-            onComplete()
-            
+            errorMessage = String(format: "import_error_field".localized(), path(context.codingPath))
         } catch {
             errorMessage = error.localizedDescription
         }
     }
+
+    func confirmImportWithDuplicates() {
+        guard !parsedGroups.isEmpty else { return }
+        showDuplicateAlert = false
+        do {
+            // Повторяем расчёт внутри транзакции: база могла измениться после предпросмотра.
+            let result = try transaction.perform { try process(groups: parsedGroups, write: true) }
+            successMessage = result.message
+            showSuccessAlert = true
+            parsedGroups = []
+            achievementsService?.evaluate()
+            onComplete()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private struct CardKey: Hashable {
+        let origin: String
+        let translated: String
+
+        init(_ origin: String, _ translated: String) {
+            self.origin = origin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            self.translated = translated.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+    }
+
+    private struct Membership: Hashable {
+        let group: String
+        let card: CardKey
+    }
+
+    private struct Summary {
+        var groups = 0
+        var cards = 0
+        var links = 0
+        var duplicates = 0
+
+        var message: String {
+            String(format: "import_summary".localized(), groups, cards, links, duplicates)
+        }
+    }
+
+    private func process(groups: [ImportGroupDTO], write: Bool) throws -> Summary {
+        let existingGroups = try groupRepository.fetchUserGroups()
+        let existingCards = try cardRepository.fetchAll()
+        // Старые базы могут содержать совпадающие названия: выбираем первый объект,
+        // не удаляя и не объединяя уже существующие пользовательские данные.
+        var groupIndex: [String: CardGroup] = [:]
+        var cardIndex: [CardKey: Card] = [:]
+        for group in existingGroups where groupIndex[group.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] == nil {
+            groupIndex[group.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] = group
+        }
+        for card in existingCards where cardIndex[CardKey(card.originWord, card.translatedWord)] == nil {
+            cardIndex[CardKey(card.originWord, card.translatedWord)] = card
+        }
+        var knownGroups = Set(groupIndex.keys)
+        var knownCards = Set(cardIndex.keys)
+        var memberships = Set<Membership>()
+        for (key, card) in cardIndex {
+            for group in card.groups {
+                memberships.insert(Membership(group: group.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), card: key))
+            }
+        }
+        var summary = Summary()
+        for group in groups {
+            let groupKey = group.name.lowercased()
+            if knownGroups.insert(groupKey).inserted {
+                summary.groups += 1
+                if write { groupIndex[groupKey] = try groupRepository.create(name: group.name) }
+            }
+            for dto in group.cards {
+                let cardKey = CardKey(dto.origin, dto.translated)
+                if knownCards.insert(cardKey).inserted {
+                    summary.cards += 1
+                    if write {
+                        cardIndex[cardKey] = try cardRepository.create(
+                            origin: dto.origin, translated: dto.translated,
+                            originDescription: dto.originDescription ?? "",
+                            translatedDescription: dto.translatedDescription ?? "", groups: []
+                        )
+                    }
+                } else {
+                    summary.duplicates += 1
+                }
+                if memberships.insert(Membership(group: groupKey, card: cardKey)).inserted {
+                    summary.links += 1
+                    if write, let card = cardIndex[cardKey], let target = groupIndex[groupKey] {
+                        try groupRepository.addCard(card, to: target)
+                    }
+                }
+            }
+        }
+        return summary
+    }
+
+    private func normalized(_ groups: [ImportGroupDTO]) throws -> [ImportGroupDTO] {
+        try groups.enumerated().map { i, group in
+            func required(_ value: String, _ field: String) throws -> String {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else {
+                    throw ImportValidationError(message: String(format: "import_error_field".localized(), field))
+                }
+                return trimmed
+            }
+            let name = try required(group.name, "[\(i)].name")
+            let cards = try group.cards.enumerated().map { j, card in
+                ImportCardDTO(
+                    origin: try required(card.origin, "[\(i)].cards[\(j)].origin"),
+                    translated: try required(card.translated, "[\(i)].cards[\(j)].translated"),
+                    originDescription: card.originDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+                    translatedDescription: card.translatedDescription?.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            }
+            return ImportGroupDTO(name: name, cards: cards)
+        }
+    }
+
+    private func path(_ keys: [CodingKey]) -> String {
+        let result = keys.map { key in key.intValue.map { "[\($0)]" } ?? ".\(key.stringValue)" }.joined()
+        return result.isEmpty ? "$" : "$" + result
+    }
+}
+
+private struct ImportValidationError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }

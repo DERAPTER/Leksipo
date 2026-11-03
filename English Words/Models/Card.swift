@@ -99,9 +99,7 @@ final class Card {
     /// Пора повторять сегодня (или карточка новая).
     var isDueToday: Bool {
         guard let next = nextReviewDate else { return true }
-        let endOfToday = Calendar.current
-            .startOfDay(for: .now)
-            .addingTimeInterval(86400)
+        let endOfToday = StudyDay.end(of: .now)
         return next < endOfToday
     }
 }

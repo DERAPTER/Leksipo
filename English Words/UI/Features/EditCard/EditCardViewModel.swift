@@ -32,6 +32,7 @@ final class EditCardViewModel {
     
     private(set) var selectedGroups: [CardGroup] = []
     private(set) var availableGroups: [CardGroup] = []
+    private(set) var hasLoadedGroups = false
     
     // MARK: - Alerts
     
@@ -63,11 +64,13 @@ final class EditCardViewModel {
         self.editedTranslated = card.translatedWord
         self.editedOriginDescription = card.originDescription
         self.editedTranslatedDescription = card.translatedDescription
+        self.selectedGroups = card.groups
     }
     
     // MARK: - Derived
     
     var canSave: Bool {
+        hasLoadedGroups &&
         !editedOrigin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !editedTranslated.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -93,12 +96,17 @@ final class EditCardViewModel {
     }
     
     private func loadGroups() {
+        // Повторное появление экрана не должно сбрасывать выбор групп в черновике.
+        guard !hasLoadedGroups else { return }
+
         do {
             let userGroups = try groupRepository.fetchUserGroups()
             let cardGroupIDs = Set(card.groups.map(\.id))
             
             selectedGroups = userGroups.filter { cardGroupIDs.contains($0.id) }
             availableGroups = userGroups.filter { !cardGroupIDs.contains($0.id) }
+            hasLoadedGroups = true
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -107,6 +115,8 @@ final class EditCardViewModel {
     // MARK: - Group toggle
     
     func toggleGroup(_ group: CardGroup) {
+        guard hasLoadedGroups else { return }
+
         if selectedGroups.contains(where: { $0.id == group.id }) {
             selectedGroups.removeAll { $0.id == group.id }
             availableGroups.append(group)
@@ -120,10 +130,11 @@ final class EditCardViewModel {
     
     /// Возвращает true при успешном сохранении.
     func save() -> Bool {
+        // Пустой список после ошибки чтения нельзя принимать за выбор пользователя.
+        guard canSave else { return false }
+
         let trimmedOrigin = editedOrigin.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTranslated = editedTranslated.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmedOrigin.isEmpty, !trimmedTranslated.isEmpty else { return false }
         
         do {
             let wordsChanged = trimmedOrigin != originalOrigin || trimmedTranslated != originalTranslated

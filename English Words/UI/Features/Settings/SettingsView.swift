@@ -25,7 +25,9 @@ struct SettingsView: View {
             cardRepository: container.cardRepository,
             groupRepository: container.groupRepository,
             statsRepository: container.statsRepository,
-            solveSessionStore: container.solveSessionStore
+            solveSessionStore: container.solveSessionStore,
+            transaction: container.transaction,
+            onRestore: { container.didRestoreData() }
         ))
     }
     
@@ -36,9 +38,15 @@ struct SettingsView: View {
             .onAppear {
                 viewModel.updateStorageSize()
             }
+            .onChange(of: srsNewCardsLimit) { _, _ in container.srsIntegration?.refresh() }
             .sheet(isPresented: $viewModel.showReleaseNotesSheet) {
                 ReleaseNotesSheet()
             }
+            .alert("error_title".localized(), isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )) { Button("ok".localized()) { viewModel.errorMessage = nil } }
+            message: { Text(viewModel.errorMessage ?? "") }
             .applyDataAlerts(viewModel: viewModel)
             .applyBackupAlerts(viewModel: viewModel, modelContext: modelContext)
             .applyLanguageAlerts(viewModel: viewModel)
@@ -59,6 +67,11 @@ struct SettingsView: View {
                 
                 divider
                 
+                if let integration = container.srsIntegration {
+                    ReminderSettingsView(integration: integration)
+                    divider
+                }
+
                 feedbackSection
                 
                 divider

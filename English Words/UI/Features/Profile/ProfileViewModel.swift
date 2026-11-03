@@ -53,17 +53,20 @@ final class ProfileViewModel {
     private let cardRepository: CardRepository
     private let groupRepository: GroupRepository
     private let achievementsService: AchievementsService
+    private let now: () -> Date
     
     init(
         statsRepository: StatsRepository,
         cardRepository: CardRepository,
         groupRepository: GroupRepository,
-        achievementsService: AchievementsService
+        achievementsService: AchievementsService,
+        now: @escaping () -> Date = { .now }
     ) {
         self.statsRepository = statsRepository
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
         self.achievementsService = achievementsService
+        self.now = now
     }
     
     // MARK: - Lifecycle
@@ -71,21 +74,14 @@ final class ProfileViewModel {
     func load() {
         do {
             let settings = try statsRepository.settings()
-            let todayStat = try statsRepository.activity(for: .now)
+            let todayStat = try statsRepository.activity(for: now())
             
-            // Учитываем смену дня: если дата lastActiveDate != сегодня,
-            // сегодняшнее количество = 0.
-            let todaySolved: Int
-            if Calendar.current.isDate(settings.lastActiveDate, inSameDayAs: .now) {
-                todaySolved = todayStat?.solvedCount ?? 0
-            } else {
-                todaySolved = 0
-            }
-            
+            let todaySolved = todayStat?.solvedCount ?? 0
+
             stats = Stats(
                 dailyGoal: settings.dailyGoal,
                 todaySolved: todaySolved,
-                streak: settings.streak,
+                streak: try statsRepository.currentStreak(on: now()),
                 totalSolved: settings.totalSolved,
                 totalCards: try cardRepository.totalCount(),
                 userGroupsCount: try groupRepository.userGroupsCount(),
@@ -93,8 +89,9 @@ final class ProfileViewModel {
                 totalDaysGoalCompleted: try statsRepository.totalDaysGoalCompleted()
             )
             
-            activityHistory = try statsRepository.activityHistory(monthsBack: 12)
-            achievementsService.refresh()
+            activityHistory = try statsRepository.activityHistory(monthsBack: -1)
+            achievementsService.evaluate()
+            errorMessage = nil
             achievements = achievementsService.allAchievements
         } catch {
             errorMessage = error.localizedDescription
@@ -111,6 +108,7 @@ final class ProfileViewModel {
     func saveGoal(_ value: Int) {
         do {
             try statsRepository.updateDailyGoal(value)
+            achievementsService.evaluate()
             load()
         } catch {
             errorMessage = error.localizedDescription
@@ -121,7 +119,7 @@ final class ProfileViewModel {
     
     func isDateActive(_ date: Date) -> Bool {
         let key = DailyStat.makeKey(for: date)
-        return activityHistory.first(where: { $0.dateKey == key })?.goalCompleted ?? false
+        return activityHistory.first(where: { $0.dateKey == key }).map { $0.solvedCount > 0 || $0.srsReviewCount > 0 || $0.goalCompleted || $0.srsCleared } ?? false
     }
     
     // MARK: - Achievements

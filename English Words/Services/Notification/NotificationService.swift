@@ -1,81 +1,96 @@
-//
-//  NotificationService.swift
-//  English Words
-//
-//  Created by Егор Халиков on 24.10.2026.
-//
-
 import Foundation
 import UserNotifications
 
 @MainActor
+protocol SRSNotificationClient {
+    func authorization() async -> UNAuthorizationStatus
+    func requestPermission() async throws -> Bool
+    func add(_ reminder: SRSReminder) async throws
+    func remove(identifiers: [String])
+}
+
+@MainActor
+final class SystemSRSNotificationClient: SRSNotificationClient {
+    private let center = UNUserNotificationCenter.current()
+
+    func authorization() async -> UNAuthorizationStatus { await center.notificationSettings().authorizationStatus }
+    func requestPermission() async throws -> Bool { try await center.requestAuthorization(options: [.alert, .sound, .badge]) }
+    func remove(identifiers: [String]) { center.removePendingNotificationRequests(withIdentifiers: identifiers) }
+
+    func add(_ reminder: SRSReminder) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = reminder.title
+        content.body = reminder.body
+        content.sound = .default
+        content.userInfo = ["route": "srs"]
+        let trigger = UNCalendarNotificationTrigger(dateMatching: reminder.components, repeats: false)
+        try await center.add(UNNotificationRequest(identifier: reminder.identifier, content: content, trigger: trigger))
+    }
+}
+
+@MainActor
+@Observable
 final class NotificationService {
-    static let shared = NotificationService()
-    
-    private let reminderIdentifier = "daily_srs_reminder"
-    
-    private init() {}
-    
-    // MARK: - Permission
-    
-    func requestPermission() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("❌ Ошибка запроса разрешения на уведомления: \(error.localizedDescription)")
-            } else {
-                print("✅ Разрешение на уведомления: \(granted ? "Да" : "Нет")")
-            }
+    private let client: SRSNotificationClient
+    private var revision = 0
+    private var desired: [SRSReminder] = []
+    private var worker: Task<Void, Never>?
+    private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    private(set) var errorMessage: String?
+
+    init(client: SRSNotificationClient) { self.client = client }
+
+    func refreshAuthorization() async {
+        authorizationStatus = await client.authorization()
+    }
+
+    func requestPermission() async -> Bool {
+        do {
+            let granted = try await client.requestPermission()
+            await refreshAuthorization()
+            errorMessage = nil
+            return granted
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
-    
-    // MARK: - Scheduling
-    
-    /// Планирует напоминание на 20:00, если есть что повторять.
-    func scheduleSRSReminder(hasDueCards: Bool) {
-        // Сначала удаляем старое уведомление, чтобы не дублировалось
-        cancelSRSReminder()
-        
-        guard hasDueCards else { return }
-        
-        let center = UNUserNotificationCenter.current()
-        
-        // Проверяем, не запретил ли пользователь уведомления в настройках
-        center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .authorized else { return }
-            
-            let content = UNMutableNotificationContent()
-            content.title = "notification_srs_title".localized()
-            content.body = "notification_srs_body".localized()
-            content.sound = .default
-            
-            // Настраиваем время: 20:00 ближайшего дня
-            var dateComponents = DateComponents()
-            dateComponents.hour = 20
-            dateComponents.minute = 0
-            
-            // Триггер сработает в ближайшие 20:00 (если уже вечер, то завтра)
-            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-            
-            let request = UNNotificationRequest(
-                identifier: self.reminderIdentifier,
-                content: content,
-                trigger: trigger
-            )
-            
-            center.add(request) { error in
-                if let error = error {
-                    print("❌ Ошибка добавления уведомления: \(error.localizedDescription)")
-                } else {
-                    print("✅ Напоминание SRS запланировано на 20:00")
+
+    func replace(with reminders: [SRSReminder]) {
+        revision += 1
+        desired = reminders
+        // Отмена видна сразу; незавершённый add будет удалён после его callback.
+        if reminders.isEmpty { client.remove(identifiers: SRSReminderPlan.identifiers) }
+        guard worker == nil else { return }
+        // Задача ограничена одним набором запросов. После cancel/replace она
+        // дожидается уже начатого add и удаляет его устаревший результат.
+        worker = Task { [weak self] in await self?.drain() }
+    }
+
+    func waitUntilIdle() async { await worker?.value }
+
+    private func drain() async {
+        defer { worker = nil }
+        while !Task.isCancelled {
+            let version = revision
+            let target = desired
+            let status = await client.authorization()
+            authorizationStatus = status
+            guard version == revision else { continue }
+            client.remove(identifiers: SRSReminderPlan.identifiers)
+            errorMessage = nil
+            if status == .authorized || status == .provisional || status == .ephemeral {
+                for reminder in target {
+                    guard version == revision, !Task.isCancelled else { break }
+                    do { try await client.add(reminder) }
+                    catch { if version == revision { errorMessage = error.localizedDescription } }
+                    if version != revision || Task.isCancelled {
+                        client.remove(identifiers: [reminder.identifier])
+                        break
+                    }
                 }
             }
+            if version == revision { return }
         }
-    }
-    
-    /// Отменяет запланированное напоминание (например, если пользователь всё выучил).
-    func cancelSRSReminder() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [reminderIdentifier])
-        print("🗑️ Напоминание SRS отменено")
     }
 }

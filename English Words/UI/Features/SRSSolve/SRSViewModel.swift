@@ -35,7 +35,8 @@ final class SRSViewModel {
     
     // MARK: - Errors
     
-    private(set) var errorMessage: String?
+    var errorMessage: String?
+    private(set) var isProcessingAnswer = false
     
     // MARK: - Dependencies
     
@@ -44,6 +45,7 @@ final class SRSViewModel {
     private let statsRepository: StatsRepository
     private let sessionCoordinator: SolveSessionCoordinator
     private let achievementsService: AchievementsService
+    private let answerRecorder: AnswerRecordingService
     
     // MARK: - Init
     
@@ -51,12 +53,14 @@ final class SRSViewModel {
         cardRepository: CardRepository,
         statsRepository: StatsRepository,
         sessionCoordinator: SolveSessionCoordinator,
-        achievementsService: AchievementsService
+        achievementsService: AchievementsService,
+        answerRecorder: AnswerRecordingService
     ) {
         self.cardRepository = cardRepository
         self.statsRepository = statsRepository
         self.sessionCoordinator = sessionCoordinator
         self.achievementsService = achievementsService
+        self.answerRecorder = answerRecorder
         
         self.session = SolveSession(groupKey: .srs, cardIDs: [])
     }
@@ -76,11 +80,15 @@ final class SRSViewModel {
     // MARK: - Lifecycle
     
     func onAppear() {
+        guard !isProcessingAnswer else { return }
         do {
             let loaded = try sessionCoordinator.currentSession(for: key)
             session = loaded
+            restoreQualityCounts()
+            errorMessage = nil
             try reloadCards()
             updateCurrentCard()
+            if !session.isSolving { try calculateNextReview() }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -103,45 +111,46 @@ final class SRSViewModel {
     }
     
     func rateCurrentCard(_ quality: SRSQuality) async {
-        guard let card = currentCard else { return }
-        
-        qualityCounts[quality, default: 0] += 1
-        
+        guard !isProcessingAnswer, !Task.isCancelled, let card = currentCard else { return }
+        isProcessingAnswer = true
+        defer {
+            isCardFlipped = false
+            updateCurrentCard()
+            isProcessingAnswer = false
+        }
         do {
-            try cardRepository.recordSRSReview(card, quality: quality.rawValue, on: .now)
-            
-            if quality.isCorrect {
-                _ = try statsRepository.recordSolved(on: .now)
-                _ = achievementsService.evaluate()
-            }
+            session = try answerRecorder.record(card: card, session: session, correct: quality.isCorrect, quality: quality)
         } catch {
+            if let persistenceError = error as? PersistenceError, case .staleSession = persistenceError {
+                // Не применяем ответ к другой карточке после смены дня/лимита.
+                do {
+                    session = try sessionCoordinator.currentSession(for: key)
+                    restoreQualityCounts()
+                    try reloadCards()
+                } catch { errorMessage = error.localizedDescription; return }
+            }
             errorMessage = error.localizedDescription
+            return
         }
-        
-        if quality.isCorrect {
-            HapticService.shared.success()
-        } else {
-            HapticService.shared.error()
-        }
-        
-        session = sessionCoordinator.markCorrect(session)
-        
-        // Если это был последний ответ в сессии — засчитываем день как активный.
+        errorMessage = nil
+        restoreQualityCounts()
+        do { try reloadCards() } catch { errorMessage = error.localizedDescription }
+        _ = achievementsService.evaluate()
+        if quality.isCorrect { HapticService.shared.success() } else { HapticService.shared.error() }
         if session.isCompletedWithoutMistakes {
-            markSRSDayCleared()
+            do { try calculateNextReview() } catch { errorMessage = error.localizedDescription }
         }
-        
-        try? await Task.sleep(for: .milliseconds(150))
-        isCardFlipped = false
-        updateCurrentCard()
+        do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
     }
-    
+
     // MARK: - Card favourite
     
     func toggleFavouriteCurrentCard() {
         guard let card = currentCard else { return }
         do {
             try cardRepository.toggleFavourite(card)
+            achievementsService.evaluate()
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -149,36 +158,19 @@ final class SRSViewModel {
     
     // MARK: - Private
     
-    /// Вызывается сразу после завершения текущей сессии.
-    /// Засчитывает день как «SRS разгребён» и обновляет виджет.
-    private func markSRSDayCleared() {
-        do {
-            // 1. Ставим флаг в базе (srsCleared = true) и обновляем srsStreak
-            try statsRepository.markSRSCleared(on: .now)
-            
-            // 2. Отменяем запланированное уведомление
-            NotificationService.shared.cancelSRSReminder()
-            
-            // 3. Обновляем данные для виджета
-            SRSWidgetSnapshotWriter.refresh(
-                cardRepository: cardRepository,
-                statsRepository: statsRepository
-            )
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    private func restoreQualityCounts() {
+        qualityCounts = Dictionary(uniqueKeysWithValues: (session.srsQualityCounts ?? [:]).compactMap { raw, count in
+            guard let value = Int(raw), let quality = SRSQuality(rawValue: value) else { return nil }
+            return (quality, count)
+        })
     }
-    
-    private func calculateNextReview() {
-        let limit = UserDefaults.standard.integer(forKey: "srsNewCardsPerDay")
-        let effectiveLimit = limit > 0 ? limit : 20
-            
-        if let overview = try? cardRepository.srsOverview(on: .now, newCardsLimit: effectiveLimit) {
-            self.nextReviewDate = overview.nextReviewDate
-            self.nextReviewCount = overview.nextReviewCount
-        }
+
+    private func calculateNextReview() throws {
+        let overview = try cardRepository.srsOverview(on: sessionCoordinator.currentDate, newCardsLimit: sessionCoordinator.newCardsLimit)
+        nextReviewDate = overview.nextReviewDate
+        nextReviewCount = overview.nextReviewCount
     }
-    
+
     private func reloadCards() throws {
         let allCards = try cardRepository.fetchAll()
         cardsByID = Dictionary(uniqueKeysWithValues: allCards.map { ($0.id, $0) })

@@ -10,10 +10,12 @@ import SwiftUI
 struct DayCell: View {
     let date: Date
     let isActive: Bool
+    var goalCompleted = false
+    var srsCleared = false
     let isToday: Bool
     let onTap: () -> Void
     
-    private let calendar = Calendar.current
+    private let calendar = StudyDay.calendar
     
     var body: some View {
         Button(action: onTap) {
@@ -35,7 +37,9 @@ struct DayCell: View {
     }
     
     private var backgroundColor: Color {
-        if isActive { return .accent }
+        if goalCompleted { return .accent }
+        if srsCleared { return .orange }
+        if isActive { return .accent.opacity(0.4) }
         if isToday { return .accent.opacity(0.2) }
         return .stroke.opacity(0.3)
     }

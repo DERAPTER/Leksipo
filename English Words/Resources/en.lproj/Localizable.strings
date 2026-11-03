@@ -225,7 +225,7 @@
 "srs_overview_next_review" = "Next review";
 "srs_overview_cards" = "Cards";
 "srs_overview_how_it_works" = "How it works";
-"srs_overview_how_it_works_desc" = "Cards you rate well come back less often. Cards you struggle with come back sooner. This makes learning more effective.";
+"srs_overview_how_it_works_desc" = "Due cards come first, followed by the oldest new words within the remaining daily limit. A new card uses the limit on its first answer. Study days follow your local date; days without assignments count toward the SRS streak.";
 "srs_overview_tomorrow" = "Tomorrow";
 "srs_overview_next_short" = "Next: %@";
 "srs_streak_label" = "Review streak";
@@ -246,11 +246,11 @@
 "profile_title" = "Profile";
 "learner" = "Learner";
 "your_progress_today" = "Your progress today";
-"daily_goal" = "daily goal";
+"daily_goal" = "Daily goal: correct answers";
 "streak" = "Streak";
 "days_in_row" = "days in a row";
 "goal_progress" = "Goal progress";
-"left_to_goal" = "%d left to goal";
+"left_to_goal" = "Correct answers remaining: %d";
 "halfway_to_goal" = "You're halfway to your goal!";
 "almost_there" = "Almost there!";
 "congrats_goal_completed" = "Congratulations! You've completed your daily goal! 🎉";
@@ -260,7 +260,7 @@
 "total_cards" = "Total cards";
 "groups_count" = "Groups";
 "favorites" = "Favorites";
-"total_solved" = "Total solved";
+"total_solved" = "Total correct answers";
 "achievements" = "Achievements";
 
 /* ============ CALENDAR ============ */
@@ -275,7 +275,7 @@
 "inactive_day" = "Inactive day";
 "today" = "Today";
 "you_studied_on_this_day" = "You studied on this day! 🎉";
-"no_study_on_this_day" = "No study on this day 📚";
+"no_study_on_this_day" = "No correct answers or SRS reviews recorded";
 "keep_it_up" = "Keep it up!";
 "start_learning_today" = "Start learning today!";
 
@@ -351,17 +351,17 @@
 
 /* ============ ACHIEVEMENTS - CARDS SOLVED ============ */
 "achievement_solved_10" = "First Step";
-"achievement_solved_10_desc" = "Solved 10 cards";
+"achievement_solved_10_desc" = "Answered correctly 10 times";
 "achievement_solved_50" = "Student";
-"achievement_solved_50_desc" = "Solved 50 cards";
+"achievement_solved_50_desc" = "Answered correctly 50 times";
 "achievement_solved_100" = "Expert";
-"achievement_solved_100_desc" = "Solved 100 cards";
+"achievement_solved_100_desc" = "Answered correctly 100 times";
 "achievement_solved_250" = "Master";
-"achievement_solved_250_desc" = "Solved 250 cards";
+"achievement_solved_250_desc" = "Answered correctly 250 times";
 "achievement_solved_500" = "Guru";
-"achievement_solved_500_desc" = "Solved 500 cards";
+"achievement_solved_500_desc" = "Answered correctly 500 times";
 "achievement_solved_1000" = "Legend";
-"achievement_solved_1000_desc" = "Solved 1000 cards";
+"achievement_solved_1000_desc" = "Answered correctly 1000 times";
 
 /* ============ ACHIEVEMENTS - STREAK ============ */
 "achievement_streak_3" = "Warm-up";
@@ -415,6 +415,7 @@
 "current_version" = "Current version";
 "previous_version" = "Previous version";
 "initial_release" = "Initial release";
+"version_2_10_0" = "Version 2.10.0";
 "version_2_9_0" = "Version 2.9.0";
 "version_2_8_0" = "Version 2.8.0";
 "version_2_7_0" = "Version 2.7.0";
@@ -442,6 +443,17 @@
 "version_1_0_0" = "Version 1.0.0";
 
 /* ============ RELEASE NOTES - CONTENT ============ */
+"release_notes_2_10_0_1" = "Protected card saving after a group loading error: retry loading without losing entered text";
+"release_notes_2_10_0_2" = "Added an import preview, data validation and merging of duplicate groups and cards; failed imports no longer leave partially imported data";
+"release_notes_2_10_0_3" = "Fixed the daily new-word limit, SRS queue order and session recovery; the first answer counts toward the limit even when incorrect";
+"release_notes_2_10_0_4" = "Fixed calendar-based review scheduling and the next-session forecast across local dates and time zone changes";
+"release_notes_2_10_0_5" = "Fixed explanation display on the back of SRS cards";
+"release_notes_2_10_0_6" = "Fixed daily progress, the activity calendar and streaks: goal changes apply today, previous days stay unchanged, and days with no SRS tasks count as completed";
+"release_notes_2_10_0_7" = "Clarified correct-answer counter labels and fixed achievement awards and sequential display of multiple rewards";
+"release_notes_2_10_0_8" = "The widget updates after data is saved and indicates stale or unavailable data; fixed opening SRS from the widget while the app is running, closed or completing first-time setup";
+"release_notes_2_10_0_9" = "Added optional reminders in Settings with a time picker and permission status; notification permission is requested only after a user action";
+"release_notes_2_10_0_10" = "Reminders are recalculated from the current SRS queue; the widget follows the selected app language and theme";
+
 "release_notes_2_9_0_1" = "Added data backup and restore via the Files app";
 "release_notes_2_9_0_2" = "Added reverse card mode (learning from translation to word)";
 "release_notes_2_9_0_3" = "Added local notifications to remind you about due SRS cards";
@@ -555,3 +567,37 @@
 "release_notes_1_0_0_14" = "Ability to choose language: English/Русский";
 "release_notes_1_0_0_15" = "Ability to reset all statistics";
 "release_notes_1_0_0_16" = "Ability to delete all data";
+
+/* Transaction safety and recovery */
+"persistence_pending_changes" = "There are unsaved changes. Finish the current action and try again.";
+"backup_invalid_data" = "The backup is damaged or contains inconsistent data. Your current database was not changed.";
+"backup_unsupported_version" = "This backup format version is not supported. Your current database was not changed.";
+"session_changed_retry" = "The session has changed. Reopen the practice session; the answer was not recorded.";
+"startup_failed_title" = "Unable to open your data";
+"startup_failed_help" = "Your data has not been deleted. Try again or share the error details with the developer.";
+"retry_action" = "Try again";
+"edit_card_groups_load_failed" = "Unable to load groups. Saving is unavailable. Try again — your entered text will be kept.";
+"startup_share_error" = "Share error details";
+"migration_invalid_data" = "Unable to migrate history: the old data contains an invalid date. The original data has been preserved.";
+
+/* Import, study days and activity */
+"import_preview_title" = "Import preview";
+"import_merge_rules" = "Group names and word pairs ignore case and surrounding spaces. Repeated groups are merged. Existing cards are linked to the listed groups; their text and descriptions are preserved. The first descriptions in the file are used for repeated cards.";
+"import_summary" = "New groups: %d\nNew cards: %d\nNew group links: %d\nRepeated entries reused without copies: %d";
+"import_error_field" = "Invalid or missing data at %@.";
+"calendar_goal_completed" = "Daily goal completed";
+"calendar_srs_completed" = "SRS completed";
+"calendar_partial_progress" = "Partial progress";
+"day_correct_answers" = "Correct answers: %d";
+
+/* SRS reminders and integration */
+"srs_reminders_enabled" = "SRS reminders";
+"srs_reminders_help" = "Get reminders for current and upcoming reviews at your chosen local time. Open the app to refresh the schedule.";
+"srs_reminder_time" = "Reminder time";
+"srs_open_system_settings" = "Open iOS Settings";
+"srs_allow_notifications" = "Allow notifications";
+"srs_notifications_allowed" = "Notifications are allowed.";
+"srs_notifications_denied" = "Notifications are disabled in iOS. Allow them in system settings.";
+"srs_notifications_not_requested" = "Notification permission has not been requested yet.";
+"srs_notifications_unavailable" = "Notification permission status is unavailable.";
+"srs_integration_failed" = "Unable to update the widget or reminder schedule. Please try again.";

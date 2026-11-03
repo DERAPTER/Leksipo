@@ -28,6 +28,11 @@ final class AppContainer {
     let solveSessionStore: SolveSessionStore
     let solveSessionCoordinator: SolveSessionCoordinator
     let achievementsService: AchievementsService
+    let transaction: PersistenceTransaction
+    let answerRecorder: AnswerRecordingService
+    let srsIntegration: SRSIntegrationService?
+    var dataRevision = UUID()
+    var showRestoreSuccess = false
     
     // MARK: - Init
     
@@ -37,7 +42,10 @@ final class AppContainer {
         statsRepository: StatsRepository,
         solveSessionStore: SolveSessionStore,
         solveSessionCoordinator: SolveSessionCoordinator,
-        achievementsService: AchievementsService
+        achievementsService: AchievementsService,
+        transaction: PersistenceTransaction,
+        answerRecorder: AnswerRecordingService,
+        srsIntegration: SRSIntegrationService? = nil
     ) {
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
@@ -45,21 +53,36 @@ final class AppContainer {
         self.solveSessionStore = solveSessionStore
         self.solveSessionCoordinator = solveSessionCoordinator
         self.achievementsService = achievementsService
+        self.transaction = transaction
+        self.answerRecorder = answerRecorder
+        self.srsIntegration = srsIntegration
     }
     
+    func didRestoreData() {
+        achievementsService.clearNotifications()
+        achievementsService.refresh()
+        srsIntegration?.refresh(force: true)
+        dataRevision = UUID()
+        showRestoreSuccess = true
+    }
+
     // MARK: - Factory
     
-    static func live(container: ModelContainer) -> AppContainer {
+    static func live(container: ModelContainer, defaults: UserDefaults = .standard, integrateSystemServices: Bool = true) throws -> AppContainer {
         let context = container.mainContext
         
-        let cardRepo = SwiftDataCardRepository(context: context)
-        let groupRepo = SwiftDataGroupRepository(context: context)
-        let statsRepo = SwiftDataStatsRepository(context: context)
+        let transaction = PersistenceTransaction(context: context)
+        let cardRepo = SwiftDataCardRepository(context: context, transaction: transaction, defaults: defaults)
+        let groupRepo = SwiftDataGroupRepository(context: context, transaction: transaction)
+        let statsRepo = SwiftDataStatsRepository(context: context, transaction: transaction)
         
-        let sessionStore = SolveSessionStore()
+        _ = try statsRepo.settings()
+        let sessionStore = SolveSessionStore(defaults: defaults, transaction: transaction)
+        try sessionStore.migrateLegacySessions()
         let sessionCoordinator = SolveSessionCoordinator(
             store: sessionStore,
-            cardRepository: cardRepo
+            cardRepository: cardRepo,
+            defaults: defaults
         )
         
         let achievementsService = AchievementsService(
@@ -68,13 +91,23 @@ final class AppContainer {
             groupRepository: groupRepo
         )
         
-        return AppContainer(
+        let integration = integrateSystemServices ? SRSIntegrationService(
+            cards: cardRepo, stats: statsRepo, defaults: defaults, store: .live,
+            notifications: NotificationService(client: SystemSRSNotificationClient())
+        ) : nil
+        transaction.onCommit = { [weak integration] in integration?.refresh() }
+        let app = AppContainer(
             cardRepository: cardRepo,
             groupRepository: groupRepo,
             statsRepository: statsRepo,
             solveSessionStore: sessionStore,
             solveSessionCoordinator: sessionCoordinator,
-            achievementsService: achievementsService
+            achievementsService: achievementsService,
+            transaction: transaction,
+            answerRecorder: AnswerRecordingService(transaction: transaction, cards: cardRepo, stats: statsRepo, coordinator: sessionCoordinator),
+            srsIntegration: integration
         )
+        integration?.refresh(force: true)
+        return app
     }
 }

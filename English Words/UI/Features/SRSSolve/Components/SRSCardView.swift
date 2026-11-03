@@ -131,7 +131,7 @@ struct SRSCardView: View {
                         .padding(.horizontal, 20)
                         .frame(maxWidth: 280)
                     
-                    if backDesc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if !backDesc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(backDesc)
                             .font(.bodyCustom)
                             .foregroundColor(.textSecondary)

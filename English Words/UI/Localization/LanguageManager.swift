@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import WidgetKit
 
 // Управляет языком приложения.
 
@@ -34,6 +35,7 @@ final class LanguageManager {
             UserDefaults.standard.synchronize()
             
             bundle = Self.loadBundle(for: currentLanguage)
+            WidgetCenter.shared.reloadAllTimelines()
             NotificationCenter.default.post(name: .languageChanged, object: nil)
         }
     }

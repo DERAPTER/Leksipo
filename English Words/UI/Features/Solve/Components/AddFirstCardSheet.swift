@@ -15,17 +15,24 @@ struct AddFirstCardSheet: View {
     
     let group: CardGroup?
     let systemType: SystemGroupType?
-    let cardRepository: CardRepository
-    let groupRepository: GroupRepository
+    @State private var viewModel: AddFirstCardViewModel
     let onComplete: () -> Void
     
     @State private var originWord = ""
     @State private var translatedWord = ""
     @State private var originDescription = ""
     @State private var translatedDescription = ""
-    @State private var errorMessage: String?
     @State private var isSaving = false
     
+    init(group: CardGroup?, systemType: SystemGroupType?, cardRepository: CardRepository,
+         achievementsService: AchievementsService, transaction: PersistenceTransaction,
+         onComplete: @escaping () -> Void) {
+        self.group = group
+        self.systemType = systemType
+        self.onComplete = onComplete
+        _viewModel = State(initialValue: AddFirstCardViewModel(cards: cardRepository, transaction: transaction, achievements: achievementsService))
+    }
+
     private var canSave: Bool {
         !originWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !translatedWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -63,7 +70,7 @@ struct AddFirstCardSheet: View {
                 }
                 .padding(.horizontal)
                 
-                if let errorMessage {
+                if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .font(.captionCustom)
                         .foregroundColor(.red)
@@ -144,40 +151,11 @@ struct AddFirstCardSheet: View {
         isSaving = true
         defer { isSaving = false }
         
-        do {
-            let exists = try cardRepository.exists(
-                origin: trimmedOrigin,
-                translated: trimmedTranslated,
-                excluding: nil
-            )
-            if exists {
-                errorMessage = "duplicate_card_message".localized()
-                return
-            }
-            
-            // Создаём карточку в нужных группах
-            var targetGroups: [CardGroup] = []
-            if let group {
-                targetGroups.append(group)
-            }
-            
-            let card = try cardRepository.create(
-                origin: trimmedOrigin,
-                translated: trimmedTranslated,
-                originDescription: originDescription,
-                translatedDescription: translatedDescription,
-                groups: targetGroups
-            )
-            
-            // Для Favourites — сразу ставим флаг
-            if systemType == .favourites {
-                try cardRepository.toggleFavourite(card)
-            }
-            
+        if viewModel.save(origin: trimmedOrigin, translated: trimmedTranslated,
+                          originDescription: originDescription, translatedDescription: translatedDescription,
+                          group: group, isFavourite: systemType == .favourites) {
             onComplete()
             dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 }

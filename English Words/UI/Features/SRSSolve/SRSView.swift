@@ -20,7 +20,8 @@ struct SRSView: View {
             cardRepository: container.cardRepository,
             statsRepository: container.statsRepository,
             sessionCoordinator: container.solveSessionCoordinator,
-            achievementsService: container.achievementsService
+            achievementsService: container.achievementsService,
+            answerRecorder: container.answerRecorder
         ))
     }
     
@@ -28,6 +29,7 @@ struct SRSView: View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
             content
+                .allowsHitTesting(!viewModel.isProcessingAnswer)
         }
         .navigationTitle("srs_review_title".localized())
         .navigationBarTitleDisplayMode(.inline)
@@ -42,8 +44,17 @@ struct SRSView: View {
                 }
             }
         }
+        .alert("error_title".localized(), isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Button("ok".localized()) { viewModel.errorMessage = nil }
+        } message: { Text(viewModel.errorMessage ?? "") }
         .onAppear {
             tabBarVisibility.isVisible = false
+            viewModel.onAppear()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             viewModel.onAppear()
         }
         .onDisappear {

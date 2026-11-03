@@ -20,3 +20,11 @@
 "widget_start_streak" = "Start your learning streak today";
 "widget_1_day_learning" = "1 day of consistent learning";
 "widget_days_learning" = "%d days of consistent learning";
+
+"widget_outdated" = "Data is out of date";
+"widget_unavailable" = "Data unavailable";
+"widget_not_ready" = "Open English Words";
+"widget_open_to_refresh" = "Open the app to refresh SRS.";
+
+"widget_display_name" = "SRS Review";
+"widget_description" = "Cards due for review and your study streak.";

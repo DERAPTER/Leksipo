@@ -9,7 +9,9 @@ import SwiftUI
 
 struct DayDetailSheet: View {
     let date: Date
-    let isActive: Bool
+    let stat: DailyStat?
+    private var isActive: Bool { (stat?.solvedCount ?? 0) > 0 || (stat?.srsReviewCount ?? 0) > 0 }
+
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -30,6 +32,17 @@ struct DayDetailSheet: View {
                 .foregroundColor(isActive ? .accent : .textSecondary)
                 .multilineTextAlignment(.center)
                 
+                Text(String(format: "day_correct_answers".localized(), stat?.solvedCount ?? 0))
+                    .font(.bodyCustom)
+                    .foregroundColor(.textPrimary)
+
+                if stat?.goalCompleted == true {
+                    Text("calendar_goal_completed".localized()).foregroundColor(.accent)
+                }
+                if stat?.srsCleared == true {
+                    Text("calendar_srs_completed".localized()).foregroundColor(.orange)
+                }
+
                 Text(isActive
                      ? "keep_it_up".localized()
                      : "start_learning_today".localized())

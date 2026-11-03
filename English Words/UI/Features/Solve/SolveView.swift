@@ -26,7 +26,8 @@ struct SolveView: View {
             cardRepository: container.cardRepository,
             statsRepository: container.statsRepository,
             sessionCoordinator: container.solveSessionCoordinator,
-            achievementsService: container.achievementsService
+            achievementsService: container.achievementsService,
+            answerRecorder: container.answerRecorder
         ))
     }
     
@@ -34,6 +35,7 @@ struct SolveView: View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
             content
+                .allowsHitTesting(!viewModel.isProcessingAnswer)
         }
         .navigationTitle(viewModel.groupTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -48,6 +50,12 @@ struct SolveView: View {
                 }
             }
         }
+        .alert("error_title".localized(), isPresented: Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Button("ok".localized()) { viewModel.errorMessage = nil }
+        } message: { Text(viewModel.errorMessage ?? "") }
         .onAppear {
             tabBarVisibility.isVisible = false
             viewModel.onAppear()
@@ -73,7 +81,8 @@ struct SolveView: View {
                 group: userGroupForCurrentKey,
                 systemType: systemTypeForCurrentKey,
                 cardRepository: container.cardRepository,
-                groupRepository: container.groupRepository,
+                achievementsService: container.achievementsService,
+                transaction: container.transaction,
                 onComplete: { viewModel.onAppear() }
             )
         }

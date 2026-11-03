@@ -23,8 +23,8 @@ struct SRSWidget: Widget {
             SRSWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("SRS Review")
-        .description("Track your review streak and due cards.")
+        .configurationDisplayName(Text(SRSWidgetText.string("widget_display_name")))
+        .description(Text(SRSWidgetText.string("widget_description")))
         .supportedFamilies([
             .systemSmall,
             .systemMedium,

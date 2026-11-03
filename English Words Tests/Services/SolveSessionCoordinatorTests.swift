@@ -12,7 +12,7 @@ import SwiftData
 
 @Suite("SolveSessionCoordinator")
 @MainActor
-struct SolveSessionCoordinatorTests {
+final class SolveSessionCoordinatorTests {
     
     // MARK: - Fixture
     
@@ -31,13 +31,12 @@ struct SolveSessionCoordinatorTests {
         defaults.removePersistentDomain(forName: suiteName)
         
         store = SolveSessionStore(defaults: defaults)
-        coordinator = SolveSessionCoordinator(store: store, cardRepository: repos.card)
+        coordinator = SolveSessionCoordinator(store: store, cardRepository: repos.card, defaults: defaults)
         
-        // SRS-лимит: fetchCardIDs для .srs читает UserDefaults.standard.
-        // Убираем ключ, чтобы получить дефолт 20.
-        UserDefaults.standard.removeObject(forKey: "srsNewCardsPerDay")
     }
-    
+
+    deinit { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
     // MARK: - Helpers
     
     @discardableResult
@@ -118,7 +117,7 @@ struct SolveSessionCoordinatorTests {
         #expect(session.unsolvedIDs.contains(c3.id))
         
         // store содержит обновлённую сессию
-        let stored = store.load(for: .user(g.id))
+        let stored = try store.load(for: .user(g.id))
         #expect(stored?.unsolvedIDs.contains(c3.id) == true)
         #expect(stored?.unsolvedIDs.contains(c1.id) == true)
     }
@@ -136,7 +135,7 @@ struct SolveSessionCoordinatorTests {
         dirty.unsolvedIDs = [fakeID, realCard.id]
         dirty.successIDs = [fakeID]
         dirty.failIDs = [fakeID]
-        store.save(dirty, for: .user(g.id))
+        try store.save(dirty, for: .user(g.id))
         
         let cleaned = try coordinator.currentSession(for: .user(g.id))
         
@@ -173,7 +172,7 @@ struct SolveSessionCoordinatorTests {
         var dirty = SolveSession(groupKey: .user(g.id), cardIDs: [])
         dirty.unsolvedIDs = [c2.id]
         dirty.successIDs = [c1.id]
-        store.save(dirty, for: .user(g.id))
+        try store.save(dirty, for: .user(g.id))
         
         let session = try coordinator.currentSession(for: .user(g.id))
         
@@ -209,40 +208,32 @@ struct SolveSessionCoordinatorTests {
         #expect(session.groupKeyString == "srs")
     }
     
-    @Test("SRS: currentSession возвращает сохранённую сессию без reconcile")
-    func srsSkipsReconcile() throws {
+    @Test("SRS: currentSession подхватывает новые назначения")
+    func srsRefreshesAssignments() throws {
         let c1 = try makeCard(origin: "a")
         
         // Первый вызов создаёт сессию
         let original = try coordinator.currentSession(for: .srs)
         #expect(original.unsolvedIDs == [c1.id])
         
-        // Добавляем новую карточку — в обычной сессии она бы подтянулась через reconcile
+        // Добавляем новое назначение в пределах дневного лимита.
         let c2 = try makeCard(origin: "b")
         
-        // SRS — не подтягивает, возвращает ровно то, что было
+        // SRS обновляет очередь, сохраняя приоритет старых карточек.
         let second = try coordinator.currentSession(for: .srs)
-        #expect(second.unsolvedIDs == [c1.id])
-        #expect(!second.unsolvedIDs.contains(c2.id))
+        #expect(second.unsolvedIDs == [c1.id, c2.id])
     }
     
-    @Test("SRS: сохранённая сессия возвращается, даже если карточка удалена")
-    func srsKeepsStaleIDs() throws {
-        // SRS — одноразовая сессия. Не делает reconcile.
-        // Если карточку удалили из БД — ID остаётся в сессии.
-        // (На практике SolveViewModel.updateCurrentCard вернёт nil,
-        //  и сессия просто завершится — но на уровне координатора ID не вычищается.)
-        
+    @Test("SRS: удалённые UUID исключаются, пустая очередь очищается")
+    func srsRemovesStaleIDs() throws {
         let c1 = try makeCard(origin: "a")
         _ = try coordinator.currentSession(for: .srs)
-        
         try repos.card.delete(c1)
-        
-        // SRS-сессия по-прежнему содержит c1.id, потому что store её отдаёт как есть
         let session = try coordinator.currentSession(for: .srs)
-        #expect(session.unsolvedIDs == [c1.id])
+        #expect(session.unsolvedIDs.isEmpty)
+        #expect(try store.load(for: .srs) == nil)
     }
-    
+
     // MARK: - restartAll
     
     @Test("restartAll: полностью сбрасывает сессию")
@@ -253,8 +244,8 @@ struct SolveSessionCoordinatorTests {
         
         // Создаём сессию, отмечаем одну
         var session = try coordinator.currentSession(for: .user(g.id))
-        session = coordinator.markCorrect(session)
-        #expect(store.load(for: .user(g.id))?.successIDs.count == 1)
+        session = try coordinator.markCorrect(session)
+        #expect(try store.load(for: .user(g.id))?.successIDs.count == 1)
         
         // Restart — всё обнулилось
         let fresh = try coordinator.restartAll(for: .user(g.id))
@@ -273,18 +264,18 @@ struct SolveSessionCoordinatorTests {
         _ = try makeCard(origin: "c", groups: [g])
         
         var session = try coordinator.currentSession(for: .user(g.id))
-        session = coordinator.markCorrect(session)
-        session = coordinator.markWrong(session)
+        session = try coordinator.markCorrect(session)
+        session = try coordinator.markWrong(session)
         
         let failedID = session.failIDs[0]
         
-        let restarted = coordinator.restartMistakes(session)
+        let restarted = try coordinator.restartMistakes(session)
         #expect(restarted.successIDs.isEmpty)
         #expect(restarted.failIDs.isEmpty)
         #expect(restarted.unsolvedIDs == [failedID])
         
         // И сохранилось
-        #expect(store.load(for: .user(g.id))?.unsolvedIDs == [failedID])
+        #expect(try store.load(for: .user(g.id))?.unsolvedIDs == [failedID])
     }
     
     // MARK: - markCorrect / markWrong
@@ -298,12 +289,12 @@ struct SolveSessionCoordinatorTests {
         let session = try coordinator.currentSession(for: .user(g.id))
         let firstID = session.unsolvedIDs[0]
         
-        let updated = coordinator.markCorrect(session)
+        let updated = try coordinator.markCorrect(session)
         #expect(updated.successIDs == [firstID])
         #expect(!updated.unsolvedIDs.contains(firstID))
         
         // Сохранено в store
-        #expect(store.load(for: .user(g.id))?.successIDs == [firstID])
+        #expect(try store.load(for: .user(g.id))?.successIDs == [firstID])
     }
     
     @Test("markWrong: перемещает текущую в fail и сохраняет в store")
@@ -314,9 +305,9 @@ struct SolveSessionCoordinatorTests {
         let session = try coordinator.currentSession(for: .user(g.id))
         let firstID = session.unsolvedIDs[0]
         
-        let updated = coordinator.markWrong(session)
+        let updated = try coordinator.markWrong(session)
         #expect(updated.failIDs == [firstID])
-        #expect(store.load(for: .user(g.id))?.failIDs == [firstID])
+        #expect(try store.load(for: .user(g.id))?.failIDs == [firstID])
     }
     
     // MARK: - persistIfNeeded: автоматическая очистка при завершении
@@ -327,10 +318,10 @@ struct SolveSessionCoordinatorTests {
         _ = try makeCard(origin: "a", groups: [g])
         
         var session = try coordinator.currentSession(for: .user(g.id))
-        session = coordinator.markCorrect(session)
+        session = try coordinator.markCorrect(session)
         
         // Сессия завершена без ошибок — persistIfNeeded вызвал store.clear
-        #expect(store.load(for: .user(g.id)) == nil)
+        #expect(try store.load(for: .user(g.id)) == nil)
     }
     
     @Test("Завершение с ошибками: сессия остаётся (для повтора ошибок)")
@@ -339,11 +330,11 @@ struct SolveSessionCoordinatorTests {
         _ = try makeCard(origin: "a", groups: [g])
         
         var session = try coordinator.currentSession(for: .user(g.id))
-        session = coordinator.markWrong(session)
+        session = try coordinator.markWrong(session)
         
         // Есть failIDs → сессия сохраняется
-        #expect(store.load(for: .user(g.id)) != nil)
-        #expect(store.load(for: .user(g.id))?.failIDs.count == 1)
+        #expect(try store.load(for: .user(g.id)) != nil)
+        #expect(try store.load(for: .user(g.id))?.failIDs.count == 1)
     }
     
     @Test("SRS: после ответа на все карточки сессия автоматически чистится")
@@ -352,13 +343,13 @@ struct SolveSessionCoordinatorTests {
         _ = try makeCard(origin: "b")
         
         var session = try coordinator.currentSession(for: .srs)
-        session = coordinator.markCorrect(session)
+        session = try coordinator.markCorrect(session)
         // Ещё не завершена
-        #expect(store.load(for: .srs) != nil)
+        #expect(try store.load(for: .srs) != nil)
         
-        session = coordinator.markCorrect(session)
+        session = try coordinator.markCorrect(session)
         // Завершена → очищена (failIDs пуст, success заполнен → isCompletedWithoutMistakes)
-        #expect(store.load(for: .srs) == nil)
+        #expect(try store.load(for: .srs) == nil)
     }
     
     // MARK: - clear
@@ -368,18 +359,18 @@ struct SolveSessionCoordinatorTests {
         let g = try makeGroup()
         _ = try makeCard(origin: "a", groups: [g])
         _ = try coordinator.currentSession(for: .user(g.id))
-        #expect(store.load(for: .user(g.id)) != nil)
+        #expect(try store.load(for: .user(g.id)) != nil)
         
-        coordinator.clear(for: .user(g.id))
-        #expect(store.load(for: .user(g.id)) == nil)
+        try coordinator.clear(for: .user(g.id))
+        #expect(try store.load(for: .user(g.id)) == nil)
     }
     
     // MARK: - SRS + лимит новых карточек
     
     @Test("SRS: уважает лимит новых карточек из UserDefaults")
     func srsRespectsNewCardsLimit() throws {
-        UserDefaults.standard.set(2, forKey: "srsNewCardsPerDay")
-        defer { UserDefaults.standard.removeObject(forKey: "srsNewCardsPerDay") }
+        defaults.set(2, forKey: "srsNewCardsPerDay")
+        defer { defaults.removeObject(forKey: "srsNewCardsPerDay") }
         
         for i in 0..<5 {
             _ = try makeCard(origin: "w\(i)")
@@ -414,25 +405,25 @@ struct SolveSessionCoordinatorTests {
         #expect(session.totalCount == 4)
         
         // 2. Отвечаем: правильно, ошибка, правильно, ошибка
-        session = coordinator.markCorrect(session)
-        session = coordinator.markWrong(session)
-        session = coordinator.markCorrect(session)
-        session = coordinator.markWrong(session)
+        session = try coordinator.markCorrect(session)
+        session = try coordinator.markWrong(session)
+        session = try coordinator.markCorrect(session)
+        session = try coordinator.markWrong(session)
         
         // 3. Сессия завершена с ошибками — есть в store
         #expect(session.failIDs.count == 2)
-        #expect(store.load(for: .user(g.id)) != nil)
+        #expect(try store.load(for: .user(g.id)) != nil)
         
         // 4. Restart по ошибкам
-        session = coordinator.restartMistakes(session)
+        session = try coordinator.restartMistakes(session)
         #expect(session.unsolvedIDs.count == 2)
         #expect(session.successIDs.isEmpty)
         
         // 5. Отвечаем правильно обе
-        session = coordinator.markCorrect(session)
-        session = coordinator.markCorrect(session)
+        session = try coordinator.markCorrect(session)
+        session = try coordinator.markCorrect(session)
         
         // 6. Завершено без ошибок → store очищен
-        #expect(store.load(for: .user(g.id)) == nil)
+        #expect(try store.load(for: .user(g.id)) == nil)
     }
 }

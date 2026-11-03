@@ -18,28 +18,35 @@ final class SRSOverviewViewModel {
     
     private let cardRepository: CardRepository
     private let statsRepository: StatsRepository
+    private let defaults: UserDefaults
+    private let now: () -> Date
     
-    init(cardRepository: CardRepository, statsRepository: StatsRepository) {
+    init(cardRepository: CardRepository, statsRepository: StatsRepository, defaults: UserDefaults = .standard, now: @escaping () -> Date = { .now }) {
         self.cardRepository = cardRepository
         self.statsRepository = statsRepository
+        self.defaults = defaults
+        self.now = now
     }
     
     // MARK: - Loading
     
     func load() {
-        let limit = UserDefaults.standard.integer(forKey: "srsNewCardsPerDay")
+        let limit = defaults.integer(forKey: "srsNewCardsPerDay")
         let effectiveLimit = limit > 0 ? limit : 20
         do {
             overview = try cardRepository.srsOverview(
-                on: .now,
+                on: now(),
                 newCardsLimit: effectiveLimit
             )
                 
-            let settings = try statsRepository.settings()
-            srsStreak = settings.srsStreak
+            if let overview {
+                try statsRepository.updateSRSStatus(on: now(), hasDueCards: overview.dueToday > 0, nextReviewDate: overview.nextReviewDate)
+            }
+            srsStreak = try statsRepository.currentSRSStreak(on: now())
+            errorMessage = nil
     
             // Проверяем, разгребен ли SRS сегодня
-            let todayStat = try statsRepository.activity(for: .now)
+            let todayStat = try statsRepository.activity(for: now())
             isSRSClearedToday = todayStat?.srsCleared ?? false
         } catch {
             errorMessage = error.localizedDescription

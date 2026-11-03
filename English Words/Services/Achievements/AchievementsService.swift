@@ -24,7 +24,8 @@ final class AchievementsService {
     
     /// Достижение, которое только что разблокировано. Используется UI для показа баннера.
     /// После показа — View зовёт `consumeRecentlyUnlocked()`.
-    private(set) var recentlyUnlocked: Achievement?
+    private var pendingNotifications: [Achievement] = []
+    var recentlyUnlocked: Achievement? { pendingNotifications.first }
     
     // MARK: - Dependencies
     
@@ -58,16 +59,12 @@ final class AchievementsService {
                 alreadyUnlocked: alreadyUnlocked
             )
             
-            for achievement in newlyUnlocked {
-                settings.unlock(achievement.id)
-            }
+            try statsRepository.unlockAchievements(newlyUnlocked.map(\.id), on: .now)
             
             // Обновляем published state
             rebuildStatusList(settings: settings)
             
-            if let first = newlyUnlocked.first {
-                recentlyUnlocked = first
-            }
+            pendingNotifications.append(contentsOf: newlyUnlocked)
             
             return newlyUnlocked
         } catch {
@@ -87,8 +84,13 @@ final class AchievementsService {
     }
     
     /// Сбросить флаг "только что разблокировано" — View вызывает после показа баннера.
-    func consumeRecentlyUnlocked() {
-        recentlyUnlocked = nil
+    func consumeRecentlyUnlocked(id: String? = nil) {
+        guard let current = pendingNotifications.first, id == nil || current.id == id else { return }
+        pendingNotifications.removeFirst()
+    }
+
+    func clearNotifications() {
+        pendingNotifications.removeAll()
     }
     
     // MARK: - Private

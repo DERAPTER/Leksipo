@@ -23,3 +23,7 @@ DerivedData/
 
 # Localization temp files
 *.lproj/*.strings~
+
+# Local project documentation
+/AGENTS.md
+/ARCHITECTURE.md

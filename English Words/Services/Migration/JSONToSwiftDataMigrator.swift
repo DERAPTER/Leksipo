@@ -9,36 +9,48 @@ import Foundation
 import SwiftData
 
 /// Одноразовая миграция данных из старого JSON-хранилища и UserDefaults в SwiftData.
+@MainActor
 struct JSONToSwiftDataMigrator {
     private static let completionKey = "swiftdata_migration_v2_completed"
     
     let context: ModelContext
-    
-    func migrateIfNeeded() {
-        guard !UserDefaults.standard.bool(forKey: Self.completionKey) else { return }
-        
-        do {
-            try migrate()
-            UserDefaults.standard.set(true, forKey: Self.completionKey)
-            print("✅ Миграция данных успешно завершена.")
-        } catch {
-            print("⚠️ Миграция не удалась: \(error.localizedDescription)")
-        }
+    private let defaults: UserDefaults
+    private let sourceURL: URL?
+    private let transaction: PersistenceTransaction
+
+    init(context: ModelContext, defaults: UserDefaults = .standard, sourceURL: URL? = nil, transaction: PersistenceTransaction? = nil) {
+        self.context = context
+        self.defaults = defaults
+        self.sourceURL = sourceURL
+        self.transaction = transaction ?? PersistenceTransaction(context: context)
     }
-    
+
+    func migrateIfNeeded() throws {
+        try transaction.perform {
+            let settings = try fetchOrCreateSettings()
+            transaction.track(settings)
+            guard settings.legacyMigrationCompleted != true else { return }
+            if !defaults.bool(forKey: Self.completionKey) { try migrate() }
+            // Маркер и перенесённые данные сохраняются одним save, без окна
+            // между фиксацией базы и записью отдельного флага UserDefaults.
+            settings.legacyMigrationCompleted = true
+        }
+        // Совместимость со старым ключом; при сбое этой записи новая версия
+        // всё равно опирается на маркер, уже зафиксированный в базе.
+        defaults.set(true, forKey: Self.completionKey)
+    }
+
     // MARK: - Private
     
     private func migrate() throws {
         // 1. Миграция карточек и групп из старого JSON
-        if let legacyDataURL = legacyFileURL,
+        if let legacyDataURL = sourceURL ?? legacyFileURL,
            FileManager.default.fileExists(atPath: legacyDataURL.path) {
             try migrateCards(from: legacyDataURL)
         }
         
         // 2. Миграция статистики и достижений из UserDefaults
         try migrateStatsAndAchievements()
-        
-        try context.save()
     }
     
     // MARK: - JSON Migration (Cards & Groups)
@@ -90,6 +102,8 @@ struct JSONToSwiftDataMigrator {
                 dateAdded: legacyCard.dateAdded
             )
             
+            newCard.id = legacyCard.id
+
             // Восстанавливаем счетчики и избранное
             newCard.correctCount = legacyCard.correctCount
             newCard.wrongCount = legacyCard.wrongCount
@@ -113,7 +127,6 @@ struct JSONToSwiftDataMigrator {
     // MARK: - UserDefaults Migration (Stats & Achievements)
     
     private func migrateStatsAndAchievements() throws {
-        let defaults = UserDefaults.standard
         let settings = try fetchOrCreateSettings()
         
         // 1. Статистика
@@ -128,8 +141,8 @@ struct JSONToSwiftDataMigrator {
         
         // 2. История активности
         // В старом DataManager это сохранялось как Data (через JSONEncoder)
-        if let historyData = defaults.data(forKey: "activityHistory"),
-           let historyDict = try? JSONDecoder().decode([String: Bool].self, from: historyData) {
+        if let historyData = defaults.data(forKey: "activityHistory") {
+            let historyDict = try JSONDecoder().decode([String: Bool].self, from: historyData)
             
             for (dateString, isCompleted) in historyDict {
                 let formatter = DateFormatter()
@@ -137,7 +150,10 @@ struct JSONToSwiftDataMigrator {
                 formatter.timeZone = .current
                 formatter.locale = Locale(identifier: "en_US_POSIX")
                 
-                if let date = formatter.date(from: dateString) {
+                guard let date = formatter.date(from: dateString), formatter.string(from: date) == dateString else {
+                    throw PersistenceError.invalidMigration
+                }
+                do {
                     let stat = DailyStat(
                         date: date,
                         solvedCount: isCompleted ? settings.dailyGoal : 0,
@@ -151,8 +167,8 @@ struct JSONToSwiftDataMigrator {
         }
         
         // 3. Достижения
-        if let achievementsData = defaults.data(forKey: "achievements"),
-           let legacyAchievements = try? JSONDecoder().decode([LegacyAchievement].self, from: achievementsData) {
+        if let achievementsData = defaults.data(forKey: "achievements") {
+            let legacyAchievements = try JSONDecoder().decode([LegacyAchievement].self, from: achievementsData)
             
             var unlockedCount = 0
             for legacy in legacyAchievements where legacy.isUnlocked {

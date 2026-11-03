@@ -39,7 +39,8 @@ enum SRSAlgorithm {
         currentEaseFactor: Double,
         currentIntervalDays: Int,
         currentRepetitions: Int,
-        from date: Date = .now
+        from date: Date = .now,
+        calendar: Calendar = StudyDay.calendar
     ) -> Prediction {
         let q = max(0, min(5, quality))
         
@@ -66,7 +67,6 @@ enum SRSAlgorithm {
         let newEF = max(minimumEaseFactor, currentEaseFactor + delta)
         
         // Дата следующего повторения — нормализуем к началу дня
-        let calendar = Calendar.current
         let nextDate = calendar.date(byAdding: .day, value: newInterval, to: date) ?? date
         let normalizedNext = calendar.startOfDay(for: nextDate)
         
