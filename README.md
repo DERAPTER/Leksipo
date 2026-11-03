@@ -1,4 +1,6 @@
-# 📚 English Words
+# 📚 Leksipo
+
+Репозиторий: [DERAPTER/Leksipo](https://github.com/DERAPTER/Leksipo).
 
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat-square&logo=swift)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-iOS%2017.0+-blue?style=flat-square&logo=apple)](https://developer.apple.com/ios/)
@@ -8,18 +10,20 @@
 [![App Store](https://img.shields.io/badge/App%20Store-Coming%20Soon-lightgrey?style=flat-square)](https://apple.com)
 
 <p align="center">
-  <img src="EnglishWordsIcon.png" alt="English Words App Icon" width="150" height="150">
+  <img src="LeksipoIcon.png" alt="Leksipo App Icon" width="150" height="150">
 </p>
 
 <p align="center">
-  <i>Эффективное изучение английских слов с помощью флеш-карточек и интервального повторения</i>
+  <i>Эффективное изучение слов с помощью флеш-карточек и интервального повторения</i>
 </p>
 
 ---
 
 ## 📱 О приложении
 
-**English Words** — это нативное iOS-приложение для изучения английских слов, построенное полностью на SwiftUI. Приложение помогает эффективно запоминать новую лексику через систему флеш-карточек с отслеживанием прогресса, достижениями, гибкой настройкой и **интервальным повторением по методу SM-2**.
+**Leksipo** — это нативное iOS-приложение для изучения слов, построенное полностью на SwiftUI. Приложение помогает эффективно запоминать новую лексику через систему флеш-карточек с отслеживанием прогресса, достижениями, гибкой настройкой и **интервальным повторением по методу SM-2**.
+
+Открывайте `Leksipo.xcodeproj`. Общие схемы: `Leksipo WidgetsExtension` (приложение и виджет) и `Leksipo Tests` (тесты). Сведения о сохранённых идентификаторах: [REBRANDING.md](REBRANDING.md).
 
 ### ✨ Ключевые особенности
 

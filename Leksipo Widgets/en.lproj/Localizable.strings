@@ -1,0 +1,30 @@
+/* 
+  Localizable.strings
+  Leksipo
+
+  Created by Егор Халиков on 09.10.2026.
+  
+*/
+
+/* ============ WIDGET ============ */
+"widget_cards_due" = "Cards due";
+"widget_day_streak" = "Day streak";
+"widget_lets_review" = "Let's review";
+"widget_keep_it_up" = "Keep it up!";
+"widget_time_to_review" = "Time to review";
+"widget_review_streak" = "Review streak";
+"widget_ready_when_you_are" = "Ready when you are";
+"widget_all_caught_up" = "All caught up";
+"widget_card_waiting" = "1 card waiting for you";
+"widget_cards_waiting" = "%d cards waiting for you";
+"widget_start_streak" = "Start your learning streak today";
+"widget_1_day_learning" = "1 day of consistent learning";
+"widget_days_learning" = "%d days of consistent learning";
+
+"widget_outdated" = "Data is out of date";
+"widget_unavailable" = "Data unavailable";
+"widget_not_ready" = "Open Leksipo";
+"widget_open_to_refresh" = "Open the app to refresh SRS.";
+
+"widget_display_name" = "SRS Review";
+"widget_description" = "Cards due for review and your study streak.";
