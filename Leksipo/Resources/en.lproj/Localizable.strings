@@ -641,3 +641,19 @@
 "import_example_word" = "word in the learning language";
 
 "import_example_translation" = "translation in the native language";
+
+// Speech voices
+"speech_available" = "Speech available";
+"speech_unavailable" = "Voice unavailable";
+"speech_configure_available" = "Speech available · Choose voice";
+"speech_voice" = "Speech voice";
+"speech_automatic" = "Automatic";
+"speech_preview_text" = "Preview text";
+"speech_enter_text" = "Enter text in the selected language";
+"speech_preview_voice" = "Preview %@";
+"speech_quality_standard" = "Standard";
+"speech_quality_enhanced" = "Enhanced";
+"speech_quality_premium" = "Premium";
+"speech_device_preference" = "Your choice applies to this language across all groups and training modes on this device. Automatic mode prefers higher quality, prioritizing the requested regional variant.";
+"speech_missing_preference" = "Your previously selected voice is unavailable. Another voice in the same language is used temporarily.";
+"speech_download_help" = "Check and download additional voices in iOS Settings: Accessibility → Spoken Content (or Read & Speak) → Voices. Return to the app to refresh this list. iOS does not offer voices for every language. Only voices accessible to this app on this device are shown.";
