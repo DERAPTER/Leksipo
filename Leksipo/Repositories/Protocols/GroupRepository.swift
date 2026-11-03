@@ -17,7 +17,8 @@ protocol GroupRepository {
     func userGroupsCount() throws -> Int
     
     // Mutations
-    func create(name: String) throws -> CardGroup
+    func create(name: String, languagePair: StudyLanguagePair?) throws -> CardGroup
+    func update(_ group: CardGroup, name: String, languagePair: StudyLanguagePair) throws
     func rename(_ group: CardGroup, to newName: String) throws
     func delete(_ group: CardGroup) throws
     func addCard(_ card: Card, to group: CardGroup) throws
@@ -25,4 +26,9 @@ protocol GroupRepository {
     
     // Validation
     func nameExists(_ name: String, excluding groupID: UUID?) throws -> Bool
+}
+
+
+extension GroupRepository {
+    func create(name: String) throws -> CardGroup { try create(name: name, languagePair: nil) }
 }

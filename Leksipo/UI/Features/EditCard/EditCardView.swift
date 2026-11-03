@@ -38,6 +38,10 @@ struct EditCardView: View {
                 
                 CardStatsSection(card: viewModel.card)
                 
+                if let error = viewModel.errorMessage {
+                    Text(error).font(.captionCustom).foregroundStyle(.red).padding(.horizontal)
+                }
+
                 saveButton
                 
                 deleteButton
@@ -85,6 +89,11 @@ struct EditCardView: View {
     
     private var wordFields: some View {
         VStack(alignment: .leading, spacing: 16) {
+            StudyLanguagePairPicker(pair: $viewModel.editedLanguagePair)
+                .onChange(of: viewModel.editedLanguagePair) { _, _ in viewModel.refreshAvailableGroups() }
+            if viewModel.selectedGroups.contains(where: { $0.languagePair != viewModel.editedLanguagePair }) {
+                Text("study_language_mismatch".localized()).font(.captionCustom).foregroundStyle(.orange)
+            }
             WordInputField(
                 title: "original_word".localized(),
                 placeholder: "enter_word".localized(),
@@ -106,13 +115,13 @@ struct EditCardView: View {
                 .foregroundColor(.textSecondary)
             
             MultilineInputField(
-                title: "original_description".localized(),
+                title: String(format: "study_description_language".localized(), viewModel.editedLanguagePair.learning.displayName),
                 placeholder: "enter_original_description".localized(),
                 text: $viewModel.editedOriginDescription
             )
             
             MultilineInputField(
-                title: "translated_description".localized(),
+                title: String(format: "study_description_language".localized(), viewModel.editedLanguagePair.translation.displayName),
                 placeholder: "enter_translated_description".localized(),
                 text: $viewModel.editedTranslatedDescription
             )

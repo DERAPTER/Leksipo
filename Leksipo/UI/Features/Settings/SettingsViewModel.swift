@@ -24,6 +24,23 @@ final class SettingsViewModel {
     var showLanguageChangeAlert = false
     
     var pendingLanguage: AppLanguage?
+    private(set) var studyLanguages = StudyLanguagePair.legacy
+    private(set) var hasLoadedStudyLanguages = false
+
+    func loadStudyLanguages() {
+        do {
+            studyLanguages = try statsRepository.settings().languagePair
+            hasLoadedStudyLanguages = true
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func saveStudyLanguages(_ pair: StudyLanguagePair) {
+        do {
+            try statsRepository.updateStudyLanguages(pair)
+            studyLanguages = pair
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     
     // Состояния для бэкапа
     var backupDocument: BackupDocument?
@@ -167,6 +184,7 @@ final class SettingsViewModel {
         do {
             try BackupService.restoreBackup(from: data, context: context, transaction: transaction)
             onRestore()
+            loadStudyLanguages()
             updateStorageSize()
             pendingRestoreData = nil
         } catch {

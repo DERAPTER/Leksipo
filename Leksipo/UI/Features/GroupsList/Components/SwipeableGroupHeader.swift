@@ -49,9 +49,16 @@ struct SwipeableGroupHeader: View {
     
     private var content: some View {
         HStack {
-            Text(item.displayName)
-                .font(.titleCustom)
-                .foregroundColor(.textPrimary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.displayName)
+                    .font(.titleCustom)
+                    .foregroundColor(.textPrimary)
+                if let group = item.userGroup {
+                    Text(group.languagePair.displayName)
+                        .font(.captionCustom)
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
             
             Spacer()
             

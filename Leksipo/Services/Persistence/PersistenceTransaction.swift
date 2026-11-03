@@ -81,7 +81,10 @@ extension PersistenceTransaction {
                                repetitions: card.repetitions, nextReviewDate: card.nextReviewDate,
                                lastReviewDate: card.lastReviewDate, groupIDs: [])
         let groups = card.groups
+        let learning = card.learningLanguageCode, translation = card.translationLanguageCode
         remember(card) {
+            card.learningLanguageCode = learning
+            card.translationLanguageCode = translation
             card.id = value.id
             card.originWord = value.originWord
             card.translatedWord = value.translatedWord
@@ -103,7 +106,10 @@ extension PersistenceTransaction {
     func track(_ group: CardGroup) {
         let id = group.id, name = group.name, date = group.createdAt, order = group.orderIndex
         let systemType = group.systemTypeRaw, cards = group.cards
+        let learning = group.learningLanguageCode, translation = group.translationLanguageCode
         remember(group) {
+            group.learningLanguageCode = learning
+            group.translationLanguageCode = translation
             group.id = id
             group.name = name
             group.createdAt = date
@@ -118,7 +124,10 @@ extension PersistenceTransaction {
         let last = settings.lastActiveDate, rewarded = settings.dailyGoalRewarded, srs = settings.srsStreak
         let ids = settings.unlockedAchievementIDs, dates = settings.achievementUnlockDates
         let sessions = settings.solveSessionsData, migrated = settings.legacyMigrationCompleted
+        let learning = settings.learningLanguageCode, translation = settings.translationLanguageCode
         remember(settings) {
+            settings.learningLanguageCode = learning
+            settings.translationLanguageCode = translation
             settings.dailyGoal = goal
             settings.streak = streak
             settings.totalSolved = total

@@ -12,6 +12,10 @@ import SwiftUI
 /// добавляет в "All Cards" и (для Favourites) ставит isFavourite.
 struct AddFirstCardSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppContainer.self) private var container
+    @State private var languagePair = StudyLanguagePair.legacy
+    @State private var didLoadLanguages = false
+    @State private var languageLoadError: String?
     
     let group: CardGroup?
     let systemType: SystemGroupType?
@@ -34,52 +38,67 @@ struct AddFirstCardSheet: View {
     }
 
     private var canSave: Bool {
-        !originWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        didLoadLanguages && !originWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !translatedWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                header
+            ScrollView {
+                VStack(spacing: 24) {
+                    header
+                    if group == nil {
+                        StudyLanguagePairPicker(pair: $languagePair).padding(.horizontal)
+                    } else {
+                        Text(languagePair.displayName).font(.captionCustom).foregroundStyle(Color.textSecondary)
+                    }
+                    if let languageLoadError { Text(languageLoadError).foregroundStyle(.red) }
                 
-                VStack(alignment: .leading, spacing: 16) {
-                    WordInputField(
-                        title: "original_word".localized(),
-                        placeholder: "enter_word".localized(),
-                        text: $originWord
-                    )
+                    VStack(alignment: .leading, spacing: 16) {
+                        WordInputField(
+                            title: "original_word".localized(),
+                            placeholder: "enter_word".localized(),
+                            text: $originWord
+                        )
                     
-                    WordInputField(
-                        title: "translation".localized(),
-                        placeholder: "enter_translation".localized(),
-                        text: $translatedWord
-                    )
+                        WordInputField(
+                            title: "translation".localized(),
+                            placeholder: "enter_translation".localized(),
+                            text: $translatedWord
+                        )
                     
-                    MultilineInputField(
-                        title: "original_description".localized(),
-                        placeholder: "enter_original_description".localized(),
-                        text: $originDescription
-                    )
+                        MultilineInputField(
+                            title: String(format: "study_description_language".localized(), languagePair.learning.displayName),
+                            placeholder: "enter_original_description".localized(),
+                            text: $originDescription
+                        )
                     
-                    MultilineInputField(
-                        title: "translated_description".localized(),
-                        placeholder: "enter_translated_description".localized(),
-                        text: $translatedDescription
-                    )
+                        MultilineInputField(
+                            title: String(format: "study_description_language".localized(), languagePair.translation.displayName),
+                            placeholder: "enter_translated_description".localized(),
+                            text: $translatedDescription
+                        )
+                    }
+                    .padding(.horizontal)
+                
+                    if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.captionCustom)
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
+                    }
+                
+                    Spacer()
+                
+                    saveButton
                 }
-                .padding(.horizontal)
-                
-                if let errorMessage = viewModel.errorMessage {
-                    Text(errorMessage)
-                        .font(.captionCustom)
-                        .foregroundColor(.red)
-                        .padding(.horizontal)
-                }
-                
-                Spacer()
-                
-                saveButton
+            }
+            .onAppear {
+                guard !didLoadLanguages else { return }
+                do {
+                    languagePair = try group?.languagePair ?? container.statsRepository.settings().languagePair
+                    didLoadLanguages = true
+                } catch { languageLoadError = error.localizedDescription }
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("add_card".localized())
@@ -153,7 +172,7 @@ struct AddFirstCardSheet: View {
         
         if viewModel.save(origin: trimmedOrigin, translated: trimmedTranslated,
                           originDescription: originDescription, translatedDescription: translatedDescription,
-                          group: group, isFavourite: systemType == .favourites) {
+                          group: group, isFavourite: systemType == .favourites, languagePair: languagePair) {
             onComplete()
             dismiss()
         }

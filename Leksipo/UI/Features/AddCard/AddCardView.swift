@@ -47,6 +47,9 @@ struct AddCardSheet: View {
                         case .chooseExisting:
                             chooseExistingContent
                         }
+                        if let error = viewModel.errorMessage {
+                            Text(error).font(.captionCustom).foregroundStyle(.red)
+                        }
                     }
                     .padding()
                 }
@@ -56,6 +59,10 @@ struct AddCardSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
             .onAppear { viewModel.onAppear() }
+            .alert("study_copy_title".localized(), isPresented: $viewModel.showLanguageCopyConfirmation) {
+                Button("cancel".localized(), role: .cancel) { }
+                Button("study_create_copy".localized()) { viewModel.prepareLanguageCopy() }
+            } message: { Text("study_copy_message".localized()) }
             .alert("duplicate_card_title".localized(), isPresented: $viewModel.showDuplicateAlert) {
                 Button("ok".localized(), role: .cancel) { }
             } message: {
@@ -94,6 +101,8 @@ struct AddCardSheet: View {
     
     @ViewBuilder
     private var createNewContent: some View {
+        Text(viewModel.languagePair.displayName)
+            .font(.captionCustom).foregroundStyle(Color.textSecondary)
         WordInputField(
             title: "original_word".localized(),
             placeholder: "enter_word".localized(),
@@ -147,13 +156,13 @@ struct AddCardSheet: View {
                 .foregroundColor(.textSecondary)
             
             MultilineInputField(
-                title: "original_description".localized(),
+                title: String(format: "study_description_language".localized(), viewModel.languagePair.learning.displayName),
                 placeholder: "enter_original_description".localized(),
                 text: $viewModel.originDescription
             )
             
             MultilineInputField(
-                title: "translated_description".localized(),
+                title: String(format: "study_description_language".localized(), viewModel.languagePair.translation.displayName),
                 placeholder: "enter_translated_description".localized(),
                 text: $viewModel.translatedDescription
             )

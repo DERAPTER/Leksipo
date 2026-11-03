@@ -19,6 +19,10 @@ struct GroupSolveCardView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
             
+            if let pair = item.languagePair {
+                Text(pair.displayName).font(.captionCustom)
+                    .foregroundStyle(Color.textSecondary).lineLimit(2)
+            }
             if item.hasUnfinishedSession {
                 continueIndicator
             } else if item.totalCards > 0 {

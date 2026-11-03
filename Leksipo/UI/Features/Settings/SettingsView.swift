@@ -37,6 +37,7 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 viewModel.updateStorageSize()
+                viewModel.loadStudyLanguages()
             }
             .onChange(of: srsNewCardsLimit) { _, _ in container.srsIntegration?.refresh() }
             .sheet(isPresented: $viewModel.showReleaseNotesSheet) {
@@ -76,6 +77,10 @@ struct SettingsView: View {
                 
                 divider
                 
+                studyLanguagesSection
+
+                divider
+
                 languageSection
                 
                 divider
@@ -190,6 +195,22 @@ struct SettingsView: View {
         }
     }
     
+    private var studyLanguagesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionTitle("study_languages".localized())
+            StudyLanguagePairPicker(pair: Binding(
+                get: { viewModel.studyLanguages },
+                set: { viewModel.saveStudyLanguages($0) }
+            ))
+            .disabled(!viewModel.hasLoadedStudyLanguages)
+            .padding(.horizontal)
+            Text("study_defaults_hint".localized())
+                .font(.captionCustom)
+                .foregroundStyle(Color.textSecondary)
+                .padding(.horizontal)
+        }
+    }
+
     private var languageSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionTitle("language".localized())

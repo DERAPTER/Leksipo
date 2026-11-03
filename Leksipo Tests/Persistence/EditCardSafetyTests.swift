@@ -179,7 +179,8 @@ private final class FailingEditorGroupRepository: GroupRepository {
 
     func fetch(id: UUID) throws -> CardGroup? { try base.fetch(id: id) }
     func userGroupsCount() throws -> Int { try base.userGroupsCount() }
-    func create(name: String) throws -> CardGroup { try base.create(name: name) }
+    func create(name: String, languagePair: StudyLanguagePair?) throws -> CardGroup { try base.create(name: name, languagePair: languagePair) }
+    func update(_ group: CardGroup, name: String, languagePair: StudyLanguagePair) throws { try base.update(group, name: name, languagePair: languagePair) }
     func rename(_ group: CardGroup, to newName: String) throws { try base.rename(group, to: newName) }
     func delete(_ group: CardGroup) throws { try base.delete(group) }
     func addCard(_ card: Card, to group: CardGroup) throws { try base.addCard(card, to: group) }

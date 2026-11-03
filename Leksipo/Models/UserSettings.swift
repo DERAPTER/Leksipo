@@ -31,6 +31,23 @@ final class UserSettings {
     var solveSessionsData: Data? = nil
     var legacyMigrationCompleted: Bool? = nil
 
+    // nil в старой базе означает исходную пару английский → русский.
+    var learningLanguageCode: String? = nil
+    var translationLanguageCode: String? = nil
+
+    var languagePair: StudyLanguagePair {
+        get {
+            StudyLanguagePair(
+                learning: learningLanguageCode.flatMap { StudyLanguage(code: $0) } ?? .english,
+                translation: translationLanguageCode.flatMap { StudyLanguage(code: $0) } ?? .russian
+            )
+        }
+        set {
+            learningLanguageCode = newValue.learning.code
+            translationLanguageCode = newValue.translation.code
+        }
+    }
+
     // Достижения
     var unlockedAchievementIDs: [String]
     var achievementUnlockDates: [String: Date]

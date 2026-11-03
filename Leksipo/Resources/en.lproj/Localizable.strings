@@ -162,7 +162,7 @@
 "import_or" = "or";
 "import_copy_prompt_top" = "Copy AI Prompt";
 
-"import_ai_prompt_text" = "Please generate a JSON array containing a group of 15 English words on the topic \"Nature\" (B2 level).\n\nRequirements:\n1. For each word, provide the English word and its Russian translation.\n2. By default, leave the description fields (\"originDescription\" and \"translatedDescription\") empty (\"\").\n3. Use exactly the JSON structure below:";
+"import_ai_prompt_text" = "Generate a JSON array containing a group of 15 words about Nature (B2 level).\n\nLearning language: %@. Translation language: %@.\n\nRequirements:\n1. Put each word in origin using the learning language and its translation in translated using the translation language.\n2. Leave originDescription and translatedDescription empty (\"\").\n3. Keep the language codes from the template.\n4. Return only JSON using this structure:";
 
 /* ============ CARD SWIPE ============ */
 "delete_from_group" = "Delete from \"%@\" only";
@@ -582,7 +582,7 @@
 
 /* Import, study days and activity */
 "import_preview_title" = "Import preview";
-"import_merge_rules" = "Group names and word pairs ignore case and surrounding spaces. Repeated groups are merged. Existing cards are linked to the listed groups; their text and descriptions are preserved. The first descriptions in the file are used for repeated cards.";
+"import_merge_rules" = "Group names and word pairs ignore case and surrounding spaces. Cards merge only when both languages match. Repeated groups merge if their languages match. Existing text and descriptions are preserved; new repeated cards use the first descriptions in the file.";
 "import_summary" = "New groups: %d\nNew cards: %d\nNew group links: %d\nRepeated entries reused without copies: %d";
 "import_error_field" = "Invalid or missing data at %@.";
 "calendar_goal_completed" = "Daily goal completed";
@@ -601,3 +601,43 @@
 "srs_notifications_not_requested" = "Notification permission has not been requested yet.";
 "srs_notifications_unavailable" = "Notification permission status is unavailable.";
 "srs_integration_failed" = "Unable to update the widget or reminder schedule. Please try again.";
+
+"study_languages" = "Study languages";
+
+"study_learning_language" = "Learning language";
+
+"study_translation_language" = "Native / translation language";
+
+"study_language_search" = "Search languages";
+
+"study_defaults_hint" = "Used for new groups and cards. Existing cards keep their languages.";
+
+"study_language_invalid" = "Unknown language code. Check the languages in your import file.";
+
+"study_language_mismatch" = "Card and group languages must match. Remove incompatible groups or create a separate card.";
+
+"study_language_shared_cards" = "Some cards also belong to other groups with the previous languages. Remove those memberships or create separate cards first.";
+
+"study_group_change_title" = "Change card languages?";
+
+"study_group_change_hint" = "Changing these languages updates every card in this group. Text and progress are preserved. Shared cards cannot remain in groups with a different language pair.";
+
+"study_copy_title" = "Different language pair";
+
+"study_create_copy" = "Create a copy";
+
+"study_copy_message" = "This card uses different languages. You can create a new card using the target group’s languages. Check its text before saving. The original card’s progress is not copied.";
+
+"study_description_language" = "Description (%@)";
+
+"study_voice_unavailable" = "No voice for %@ is available on this device. Add a voice in iOS Settings: Accessibility → Spoken Content (or Read & Speak) → Voices.";
+
+"import_language_hint" = "These languages apply when a group has no language codes in JSON. One file can contain different language pairs.";
+
+"import_language_conflict" = "Group “%@” already exists or occurs in the file with different languages. Use another name or matching languages.";
+
+"import_example_group_name" = "Group name";
+
+"import_example_word" = "word in the learning language";
+
+"import_example_translation" = "translation in the native language";

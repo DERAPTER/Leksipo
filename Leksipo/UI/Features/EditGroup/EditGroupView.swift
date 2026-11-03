@@ -32,6 +32,12 @@ struct EditGroupView: View {
                     header
                     
                     nameEditor
+
+                    StudyLanguagePairPicker(pair: $viewModel.editedLanguagePair).padding(.horizontal)
+                    Text("study_group_change_hint".localized())
+                        .font(.captionCustom)
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(.horizontal)
                     
                     infoSection
                     
@@ -64,6 +70,12 @@ struct EditGroupView: View {
             } message: {
                 Text("delete_group_message".localized())
             }
+            .alert("study_group_change_title".localized(), isPresented: $viewModel.showLanguageConfirmation) {
+                Button("cancel".localized(), role: .cancel) { }
+                Button("save_changes".localized()) {
+                    if viewModel.save(confirmLanguageChange: true) { onComplete() }
+                }
+            } message: { Text("study_group_change_hint".localized()) }
             .alert(
                 "error_title".localized(),
                 isPresented: $viewModel.showErrorAlert

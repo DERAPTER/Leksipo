@@ -133,7 +133,8 @@ final class SwiftDataCardRepository: CardRepository {
         translated: String,
         originDescription: String,
         translatedDescription: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair? = nil
     ) throws -> Card {
         return try transaction.perform {
             groups.forEach { transaction.track($0) }
@@ -154,6 +155,9 @@ final class SwiftDataCardRepository: CardRepository {
                 translatedDescription: trimmedTranslatedDesc,
                 dateAdded: now()
             )
+            let pair = try languagePair ?? groups.first?.languagePair ?? defaultLanguagePair()
+            guard groups.allSatisfy({ $0.languagePair == pair }) else { throw StudyLanguageError.incompatibleGroup }
+            card.languagePair = pair
             card.groups = groups
             context.insert(card)
             try noteNewSRSCard(on: card.dateAdded)
@@ -168,7 +172,8 @@ final class SwiftDataCardRepository: CardRepository {
         translated: String,
         originDescription: String,
         translatedDescription: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair? = nil
     ) throws {
         return try transaction.perform {
             (card.groups + groups).forEach { transaction.track($0) }
@@ -180,6 +185,9 @@ final class SwiftDataCardRepository: CardRepository {
                 throw RepositoryError.invalidInput(reason: "Слово и перевод не могут быть пустыми")
             }
 
+            let pair = languagePair ?? card.languagePair
+            guard groups.allSatisfy({ $0.languagePair == pair }) else { throw StudyLanguageError.incompatibleGroup }
+            card.languagePair = pair
             card.originWord = trimmedOrigin
             card.translatedWord = trimmedTranslated
             card.originDescription = originDescription.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -220,7 +228,8 @@ final class SwiftDataCardRepository: CardRepository {
     
     // MARK: - Validation
     
-    func exists(origin: String, translated: String, excluding cardID: UUID?) throws -> Bool {
+    func exists(origin: String, translated: String, excluding cardID: UUID?, languagePair: StudyLanguagePair? = nil) throws -> Bool {
+        let pair = try languagePair ?? defaultLanguagePair()
         let lowerOrigin = origin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let lowerTranslated = translated.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
@@ -228,7 +237,7 @@ final class SwiftDataCardRepository: CardRepository {
             let all = try context.fetch(FetchDescriptor<Card>())
             return all.contains { card in
                 if let excludeID = cardID, card.id == excludeID { return false }
-                return card.originWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowerOrigin &&
+                return card.languagePair == pair && card.originWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowerOrigin &&
                        card.translatedWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == lowerTranslated
             }
         } catch {
@@ -339,6 +348,11 @@ final class SwiftDataCardRepository: CardRepository {
             transaction.track(latest)
             latest.srsNextDueDayKey = key
         }
+    }
+
+    private func defaultLanguagePair() throws -> StudyLanguagePair {
+        let descriptor = FetchDescriptor<UserSettings>(predicate: #Predicate { $0.id == "singleton" })
+        return try context.fetch(descriptor).first?.languagePair ?? .legacy
     }
 
     private func dailyStat(on date: Date) throws -> DailyStat? {

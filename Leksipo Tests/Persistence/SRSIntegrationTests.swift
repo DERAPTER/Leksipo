@@ -78,16 +78,16 @@ private final class FailableWidgetCards: CardRepository {
     func totalCount() throws -> Int { try base.totalCount() }
     func favouritesCount() throws -> Int { try base.favouritesCount() }
     func count(inGroup groupID: UUID) throws -> Int { try base.count(inGroup: groupID) }
-    func create(origin: String, translated: String, originDescription: String, translatedDescription: String, groups: [CardGroup]) throws -> Card {
-        try base.create(origin: origin, translated: translated, originDescription: originDescription, translatedDescription: translatedDescription, groups: groups)
+    func create(origin: String, translated: String, originDescription: String, translatedDescription: String, groups: [CardGroup], languagePair: StudyLanguagePair?) throws -> Card {
+        try base.create(origin: origin, translated: translated, originDescription: originDescription, translatedDescription: translatedDescription, groups: groups, languagePair: languagePair)
     }
-    func update(_ card: Card, origin: String, translated: String, originDescription: String, translatedDescription: String, groups: [CardGroup]) throws {
-        try base.update(card, origin: origin, translated: translated, originDescription: originDescription, translatedDescription: translatedDescription, groups: groups)
+    func update(_ card: Card, origin: String, translated: String, originDescription: String, translatedDescription: String, groups: [CardGroup], languagePair: StudyLanguagePair?) throws {
+        try base.update(card, origin: origin, translated: translated, originDescription: originDescription, translatedDescription: translatedDescription, groups: groups, languagePair: languagePair)
     }
     func toggleFavourite(_ card: Card) throws { try base.toggleFavourite(card) }
     func delete(_ card: Card) throws { try base.delete(card) }
     func recordAnswer(_ card: Card, correct: Bool) throws { try base.recordAnswer(card, correct: correct) }
-    func exists(origin: String, translated: String, excluding cardID: UUID?) throws -> Bool { try base.exists(origin: origin, translated: translated, excluding: cardID) }
+    func exists(origin: String, translated: String, excluding cardID: UUID?, languagePair: StudyLanguagePair?) throws -> Bool { try base.exists(origin: origin, translated: translated, excluding: cardID, languagePair: languagePair) }
     func fetchDueToday(on date: Date, newCardsLimit: Int) throws -> [Card] { try base.fetchDueToday(on: date, newCardsLimit: newCardsLimit) }
     func dueTodayCount(on date: Date, newCardsLimit: Int) throws -> Int { try base.dueTodayCount(on: date, newCardsLimit: newCardsLimit) }
     func recordSRSReview(_ card: Card, quality: Int, on date: Date) throws { try base.recordSRSReview(card, quality: quality, on: date) }

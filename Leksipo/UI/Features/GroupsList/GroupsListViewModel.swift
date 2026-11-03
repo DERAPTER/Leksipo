@@ -131,8 +131,8 @@ final class GroupsListViewModel {
     
     // MARK: - Group mutations
     
-    func createGroup(name: String) throws {
-        _ = try groupRepository.create(name: name)
+    func createGroup(name: String, languagePair: StudyLanguagePair? = nil) throws {
+        _ = try groupRepository.create(name: name, languagePair: languagePair)
         _ = achievementsService.evaluate()
         load()
     }

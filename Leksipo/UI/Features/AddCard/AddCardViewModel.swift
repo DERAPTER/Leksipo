@@ -46,6 +46,19 @@ final class AddCardViewModel {
     // MARK: - State: Alerts
     
     var showDuplicateAlert = false
+    var showLanguageCopyConfirmation = false
+    private var cardToCopy: Card?
+    var languagePair: StudyLanguagePair { targetGroup.languagePair }
+
+    func prepareLanguageCopy() {
+        guard let card = cardToCopy else { return }
+        originWord = card.originWord
+        translatedWord = card.translatedWord
+        originDescription = card.originDescription
+        translatedDescription = card.translatedDescription
+        mode = .createNew
+        cardToCopy = nil
+    }
     var showSuccessAlert = false
     var addedCardsCount = 0
     private(set) var errorMessage: String?
@@ -106,7 +119,7 @@ final class AddCardViewModel {
     
     private func loadGroups() {
         do {
-            let userGroups = try groupRepository.fetchUserGroups()
+            let userGroups = try groupRepository.fetchUserGroups().filter { $0.languagePair == languagePair }
             
             // targetGroup всегда выбран и не может быть снят
             if !selectedGroups.contains(where: { $0.id == targetGroup.id }) {
@@ -133,7 +146,7 @@ final class AddCardViewModel {
     
     func toggleGroup(_ group: CardGroup) {
         // targetGroup нельзя снять
-        guard group.id != targetGroup.id else { return }
+        guard group.id != targetGroup.id, group.languagePair == languagePair else { return }
         
         if selectedGroups.contains(where: { $0.id == group.id }) {
             selectedGroups.removeAll { $0.id == group.id }
@@ -148,6 +161,11 @@ final class AddCardViewModel {
     
     func toggleCardSelection(_ card: Card) {
         guard !isCardInTargetGroup(card) else { return }
+        guard card.languagePair == languagePair else {
+            cardToCopy = card
+            showLanguageCopyConfirmation = true
+            return
+        }
         
         if selectedCardIDs.contains(card.id) {
             selectedCardIDs.remove(card.id)
@@ -174,7 +192,7 @@ final class AddCardViewModel {
             let exists = try cardRepository.exists(
                 origin: trimmedOrigin,
                 translated: trimmedTranslated,
-                excluding: nil
+                excluding: nil, languagePair: languagePair
             )
             if exists {
                 showDuplicateAlert = true
@@ -186,7 +204,7 @@ final class AddCardViewModel {
                 translated: trimmedTranslated,
                 originDescription: originDescription,
                 translatedDescription: translatedDescription,
-                groups: selectedGroups
+                groups: selectedGroups, languagePair: languagePair
             )
             
             _ = achievementsService.evaluate()

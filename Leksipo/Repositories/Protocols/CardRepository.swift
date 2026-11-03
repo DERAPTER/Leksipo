@@ -27,7 +27,8 @@ protocol CardRepository {
         translated: String,
         originDescription: String,
         translatedDescription: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair?
     ) throws -> Card
     
     func update(
@@ -36,7 +37,8 @@ protocol CardRepository {
         translated: String,
         originDescription: String,
         translatedDescription: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair?
     ) throws
     
     func toggleFavourite(_ card: Card) throws
@@ -44,7 +46,7 @@ protocol CardRepository {
     func recordAnswer(_ card: Card, correct: Bool) throws
     
     // MARK: - Validation
-    func exists(origin: String, translated: String, excluding cardID: UUID?) throws -> Bool
+    func exists(origin: String, translated: String, excluding cardID: UUID?, languagePair: StudyLanguagePair?) throws -> Bool
     
     // MARK: - SRS (SM-2)
     /// Карточки к повторению на указанную дату:
@@ -66,20 +68,37 @@ protocol CardRepository {
 // MARK: - Convenience overloads (обратная совместимость)
 
 extension CardRepository {
+    func create(origin: String, translated: String, originDescription: String, translatedDescription: String,
+                groups: [CardGroup]) throws -> Card {
+        try create(origin: origin, translated: translated, originDescription: originDescription,
+                   translatedDescription: translatedDescription, groups: groups, languagePair: nil)
+    }
+
+    func update(_ card: Card, origin: String, translated: String, originDescription: String,
+                translatedDescription: String, groups: [CardGroup]) throws {
+        try update(card, origin: origin, translated: translated, originDescription: originDescription,
+                   translatedDescription: translatedDescription, groups: groups, languagePair: nil)
+    }
+
+    func exists(origin: String, translated: String, excluding cardID: UUID?) throws -> Bool {
+        try exists(origin: origin, translated: translated, excluding: cardID, languagePair: nil)
+    }
+
     
     /// Создать карточку без описаний.
     @discardableResult
     func create(
         origin: String,
         translated: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair? = nil
     ) throws -> Card {
         try create(
             origin: origin,
             translated: translated,
             originDescription: "",
             translatedDescription: "",
-            groups: groups
+            groups: groups, languagePair: languagePair
         )
     }
     
@@ -88,7 +107,8 @@ extension CardRepository {
         _ card: Card,
         origin: String,
         translated: String,
-        groups: [CardGroup]
+        groups: [CardGroup],
+        languagePair: StudyLanguagePair? = nil
     ) throws {
         try update(
             card,
@@ -96,7 +116,7 @@ extension CardRepository {
             translated: translated,
             originDescription: card.originDescription,
             translatedDescription: card.translatedDescription,
-            groups: groups
+            groups: groups, languagePair: languagePair
         )
     }
 }

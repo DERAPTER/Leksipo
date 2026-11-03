@@ -19,17 +19,19 @@ struct SRSCardView: View {
     let isReversed: Bool
     let onToggleFavourite: () -> Void
     
+    @State private var speechError: String?
+
     private let cardWidth: CGFloat = 320
     private let cardHeight: CGFloat = 480
     
     private var frontWord: String { isReversed ? card.translatedWord : card.originWord }
     private var frontDesc: String { isReversed ? card.translatedDescription : card.originDescription }
-    private var frontLang: AppLanguage { isReversed ? .russian : .english }
+    private var frontLang: StudyLanguage { isReversed ? card.languagePair.translation : card.languagePair.learning }
         
     private var backWordSmall: String { isReversed ? card.translatedWord : card.originWord }
     private var backWordLarge: String { isReversed ? card.originWord : card.translatedWord }
     private var backDesc: String { isReversed ? card.originDescription : card.translatedDescription }
-    private var backLang: AppLanguage { isReversed ? .english : .russian }
+    private var backLang: StudyLanguage { isReversed ? card.languagePair.learning : card.languagePair.translation }
     
     var body: some View {
         ZStack {
@@ -52,8 +54,13 @@ struct SRSCardView: View {
             PronunciationService.shared.stop()
         }
         .onChange(of: isReversed) { _, _ in
+            PronunciationService.shared.stop()
             isFlipped = false
         }
+        .alert("error_title".localized(), isPresented: Binding(
+            get: { speechError != nil }, set: { if !$0 { speechError = nil } }
+        )) { Button("ok".localized()) { speechError = nil } }
+        message: { Text(speechError ?? "") }
         .onDisappear {
             PronunciationService.shared.stop()
         }
@@ -152,7 +159,7 @@ struct SRSCardView: View {
     
     private func cardBase<Content: View>(
         speechText: String,
-        speechLanguage: AppLanguage,
+        speechLanguage: StudyLanguage,
         @ViewBuilder content: () -> Content
     ) -> some View {
         ZStack {
@@ -177,10 +184,11 @@ struct SRSCardView: View {
         }
     }
     
-    private func speakButton(text: String, language: AppLanguage) -> some View {
+    private func speakButton(text: String, language: StudyLanguage) -> some View {
         Button {
             HapticService.shared.lightImpact()
-            PronunciationService.shared.speak(text, language: language)
+            do { try PronunciationService.shared.speak(text, language: language) }
+            catch { speechError = error.localizedDescription }
         } label: {
             Image(systemName: "speaker.wave.2.fill")
                 .font(.title2)

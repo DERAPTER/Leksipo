@@ -18,6 +18,12 @@ final class EditGroupViewModel {
     // MARK: - Editable state
     
     var editedName: String
+    var editedLanguagePair: StudyLanguagePair
+    var showLanguageConfirmation = false
+
+    var needsLanguageConfirmation: Bool {
+        editedLanguagePair != group.languagePair && !group.cards.isEmpty
+    }
     
     // MARK: - Alerts
     
@@ -33,24 +39,29 @@ final class EditGroupViewModel {
         self.group = group
         self.groupRepository = groupRepository
         self.editedName = group.name
+        self.editedLanguagePair = group.languagePair
     }
     
     // MARK: - Derived
     
     var canSave: Bool {
         let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed != group.name
+        return !trimmed.isEmpty && (trimmed != group.name || editedLanguagePair != group.languagePair)
     }
     
     // MARK: - Actions
     
     /// Возвращает true при успешном сохранении.
-    func save() -> Bool {
+    func save(confirmLanguageChange: Bool = false) -> Bool {
+        if needsLanguageConfirmation && !confirmLanguageChange {
+            showLanguageConfirmation = true
+            return false
+        }
         let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         
         do {
-            try groupRepository.rename(group, to: trimmed)
+            try groupRepository.update(group, name: trimmed, languagePair: editedLanguagePair)
             return true
         } catch {
             errorMessage = error.localizedDescription

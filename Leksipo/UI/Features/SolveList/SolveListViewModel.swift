@@ -17,6 +17,7 @@ final class SolveListViewModel {
         let totalCards: Int
         let solvedInSession: Int
         let hasUnfinishedSession: Bool
+        var languagePair: StudyLanguagePair? = nil
         
         var id: String { key.stringValue }
         
@@ -61,7 +62,7 @@ final class SolveListViewModel {
                 result.append(try makeItem(
                     key: .user(group.id),
                     name: group.name,
-                    cards: cardRepository.fetch(inGroup: group.id)
+                    cards: cardRepository.fetch(inGroup: group.id), languagePair: group.languagePair
                 ))
             }
             
@@ -75,7 +76,7 @@ final class SolveListViewModel {
     private func makeItem(
         key: SolveGroupKey,
         name: String,
-        cards: [Card]
+        cards: [Card], languagePair: StudyLanguagePair? = nil
     ) throws -> GroupItem {
         let total = cards.count
         
@@ -96,7 +97,7 @@ final class SolveListViewModel {
             name: name,
             totalCards: total,
             solvedInSession: solvedInSession,
-            hasUnfinishedSession: hasUnfinished
+            hasUnfinishedSession: hasUnfinished, languagePair: languagePair
         )
     }
 }

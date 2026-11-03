@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct AddGroupSheet: View {
+    @Environment(AppContainer.self) private var container
+    @State private var languagePair = StudyLanguagePair.legacy
+    @State private var didLoadLanguages = false
     @Bindable var viewModel: GroupsListViewModel
     @Binding var isPresented: Bool
     
@@ -17,21 +20,25 @@ struct AddGroupSheet: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                header
+            ScrollView {
+                VStack(spacing: 24) {
+                    header
                 
-                inputField
+                    inputField
+
+                    StudyLanguagePairPicker(pair: $languagePair).padding(.horizontal)
                 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.captionCustom)
-                        .foregroundColor(.red)
-                        .padding(.horizontal)
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.captionCustom)
+                            .foregroundColor(.red)
+                            .padding(.horizontal)
+                    }
+                
+                    Spacer()
+                
+                    createButton
                 }
-                
-                Spacer()
-                
-                createButton
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
@@ -44,6 +51,11 @@ struct AddGroupSheet: View {
             }
             .onAppear {
                 isFocused = true
+                guard !didLoadLanguages else { return }
+                do {
+                    languagePair = try container.statsRepository.settings().languagePair
+                    didLoadLanguages = true
+                } catch { errorMessage = error.localizedDescription }
             }
         }
     }
@@ -93,7 +105,7 @@ struct AddGroupSheet: View {
                 .background(groupName.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.accent)
                 .cornerRadius(16)
         }
-        .disabled(groupName.trimmingCharacters(in: .whitespaces).isEmpty)
+        .disabled(!didLoadLanguages || groupName.trimmingCharacters(in: .whitespaces).isEmpty)
         .padding(.horizontal)
         .padding(.bottom, 30)
     }
@@ -103,7 +115,7 @@ struct AddGroupSheet: View {
         guard !trimmed.isEmpty else { return }
         
         do {
-            try viewModel.createGroup(name: trimmed)
+            try viewModel.createGroup(name: trimmed, languagePair: languagePair)
             isPresented = false
         } catch {
             errorMessage = error.localizedDescription

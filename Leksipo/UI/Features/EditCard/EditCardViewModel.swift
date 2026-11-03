@@ -25,6 +25,8 @@ final class EditCardViewModel {
     
     // MARK: - Editable state
     
+    var editedLanguagePair: StudyLanguagePair
+    private let originalLanguagePair: StudyLanguagePair
     var editedOrigin: String
     var editedTranslated: String
     var editedOriginDescription: String
@@ -51,6 +53,8 @@ final class EditCardViewModel {
         groupRepository: GroupRepository
     ) {
         self.card = card
+        self.editedLanguagePair = card.languagePair
+        self.originalLanguagePair = card.languagePair
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
         
@@ -82,7 +86,7 @@ final class EditCardViewModel {
         let trimmedTranslatedDesc = editedTranslatedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         let currentGroupIDs = Set(selectedGroups.map(\.id))
         
-        return trimmedOrigin != originalOrigin ||
+        return editedLanguagePair != originalLanguagePair || trimmedOrigin != originalOrigin ||
                trimmedTranslated != originalTranslated ||
                trimmedOriginDesc != originalOriginDescription ||
                trimmedTranslatedDesc != originalTranslatedDescription ||
@@ -104,7 +108,7 @@ final class EditCardViewModel {
             let cardGroupIDs = Set(card.groups.map(\.id))
             
             selectedGroups = userGroups.filter { cardGroupIDs.contains($0.id) }
-            availableGroups = userGroups.filter { !cardGroupIDs.contains($0.id) }
+            availableGroups = userGroups.filter { !cardGroupIDs.contains($0.id) && $0.languagePair == editedLanguagePair }
             hasLoadedGroups = true
             errorMessage = nil
         } catch {
@@ -112,14 +116,23 @@ final class EditCardViewModel {
         }
     }
     
+    func refreshAvailableGroups() {
+        do {
+            availableGroups = try groupRepository.fetchUserGroups().filter { group in
+                group.languagePair == editedLanguagePair && !selectedGroups.contains { $0.id == group.id }
+            }
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     // MARK: - Group toggle
     
     func toggleGroup(_ group: CardGroup) {
         guard hasLoadedGroups else { return }
+        guard selectedGroups.contains(where: { $0.id == group.id }) || group.languagePair == editedLanguagePair else { return }
 
         if selectedGroups.contains(where: { $0.id == group.id }) {
             selectedGroups.removeAll { $0.id == group.id }
-            availableGroups.append(group)
+            if group.languagePair == editedLanguagePair { availableGroups.append(group) }
         } else {
             availableGroups.removeAll { $0.id == group.id }
             selectedGroups.append(group)
@@ -137,12 +150,12 @@ final class EditCardViewModel {
         let trimmedTranslated = editedTranslated.trimmingCharacters(in: .whitespacesAndNewlines)
         
         do {
-            let wordsChanged = trimmedOrigin != originalOrigin || trimmedTranslated != originalTranslated
+            let wordsChanged = editedLanguagePair != originalLanguagePair || trimmedOrigin != originalOrigin || trimmedTranslated != originalTranslated
             if wordsChanged {
                 let exists = try cardRepository.exists(
                     origin: trimmedOrigin,
                     translated: trimmedTranslated,
-                    excluding: card.id
+                    excluding: card.id, languagePair: editedLanguagePair
                 )
                 if exists {
                     showDuplicateAlert = true
@@ -156,7 +169,7 @@ final class EditCardViewModel {
                 translated: trimmedTranslated,
                 originDescription: editedOriginDescription,
                 translatedDescription: editedTranslatedDescription,
-                groups: selectedGroups
+                groups: selectedGroups, languagePair: editedLanguagePair
             )
             return true
         } catch {

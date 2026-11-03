@@ -8,7 +8,7 @@
 import Foundation
 
 struct BackupRoot: Codable {
-    // nil — старый экспорт 2.9.0; 1 — первый явно версионированный формат.
+    // nil — экспорт 2.9.0; 1 — первый версионированный формат; 2 — языковые пары.
     var schemaVersion: Int? = 1
     let version: String
     let exportDate: Date
@@ -34,6 +34,8 @@ struct BackupCard: Codable {
     let nextReviewDate: Date?
     let lastReviewDate: Date?
     let groupIDs: [UUID] // Связи с группами
+    var learningLanguageCode: String? = nil
+    var translationLanguageCode: String? = nil
 }
 
 struct BackupGroup: Codable {
@@ -41,6 +43,8 @@ struct BackupGroup: Codable {
     let name: String
     let createdAt: Date
     let orderIndex: Int
+    var learningLanguageCode: String? = nil
+    var translationLanguageCode: String? = nil
 }
 
 struct BackupDailyStat: Codable {
@@ -63,4 +67,6 @@ struct BackupUserSettings: Codable {
     let srsStreak: Int
     let unlockedAchievementIDs: [String]
     let achievementUnlockDates: [String: Date]
+    var learningLanguageCode: String? = nil
+    var translationLanguageCode: String? = nil
 }

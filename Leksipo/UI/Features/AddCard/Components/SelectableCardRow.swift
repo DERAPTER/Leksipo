@@ -26,6 +26,8 @@ struct SelectableCardRow: View {
                         .font(.bodyCustom)
                         .foregroundColor(isAlreadyInGroup ? .textSecondary : .textPrimary)
                     
+                    Text(card.languagePair.displayName)
+                        .font(.caption2).foregroundColor(.textSecondary)
                     Text(card.translatedWord)
                         .font(.captionCustom)
                         .foregroundColor(.textSecondary)

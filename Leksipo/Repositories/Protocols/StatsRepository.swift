@@ -11,6 +11,7 @@ import Foundation
 protocol StatsRepository {
     // Settings
     func settings() throws -> UserSettings
+    func updateStudyLanguages(_ pair: StudyLanguagePair) throws
     func unlockAchievements(_ ids: [String], on date: Date) throws
     func updateDailyGoal(_ goal: Int) throws
     

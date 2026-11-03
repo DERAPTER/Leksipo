@@ -55,7 +55,7 @@ final class SwiftDataGroupRepository: GroupRepository {
     
     // MARK: - Mutations
     
-    func create(name: String) throws -> CardGroup {
+    func create(name: String, languagePair: StudyLanguagePair? = nil) throws -> CardGroup {
         return try transaction.perform {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else {
@@ -68,12 +68,46 @@ final class SwiftDataGroupRepository: GroupRepository {
 
             let nextIndex = try nextOrderIndex()
             let group = CardGroup(name: trimmed, orderIndex: nextIndex)
+            let descriptor = FetchDescriptor<UserSettings>(predicate: #Predicate { $0.id == "singleton" })
+            group.languagePair = try languagePair ?? context.fetch(descriptor).first?.languagePair ?? .legacy
             context.insert(group)
 
             return group
         }
     }
     
+    /// Исправление метаданных языка не меняет тексты и прогресс карточек.
+    /// Общие карточки сначала нужно отвязать от других групп, чтобы не менять их неявно.
+    func update(_ group: CardGroup, name: String, languagePair: StudyLanguagePair) throws {
+        try transaction.perform {
+            if languagePair != group.languagePair {
+                guard group.cards.allSatisfy({ card in
+                    card.groups.allSatisfy { $0.id == group.id || $0.languagePair == languagePair }
+                }) else { throw StudyLanguageError.sharedCards }
+                let allCards = try context.fetch(FetchDescriptor<Card>())
+                let changingIDs = Set(group.cards.map(\.id))
+                func textKey(_ card: Card) -> [String] {
+                    [card.originWord, card.translatedWord].map {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    }
+                }
+                let existingKeys = Set(allCards.filter {
+                    !changingIDs.contains($0.id) && $0.languagePair == languagePair
+                }.map(textKey))
+                guard group.cards.allSatisfy({ !existingKeys.contains(textKey($0)) }) else {
+                    throw StudyLanguageError.duplicateCard
+                }
+                transaction.track(group)
+                for card in group.cards {
+                    transaction.track(card)
+                    card.languagePair = languagePair
+                }
+                group.languagePair = languagePair
+            }
+            try rename(group, to: name)
+        }
+    }
+
     func rename(_ group: CardGroup, to newName: String) throws {
         return try transaction.perform {
             transaction.track(group)
@@ -112,6 +146,7 @@ final class SwiftDataGroupRepository: GroupRepository {
         return try transaction.perform {
             transaction.track(group)
             transaction.track(card)
+            guard card.languagePair == group.languagePair else { throw StudyLanguageError.incompatibleGroup }
             guard !card.groups.contains(where: { $0.id == group.id }) else { return }
             card.groups.append(group)
 

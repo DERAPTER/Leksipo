@@ -12,6 +12,16 @@ import UniformTypeIdentifiers
 struct ImportGroupDTO: Codable {
     let name: String
     let cards: [ImportCardDTO]
+    var learningLanguageCode: String? = nil
+    var translationLanguageCode: String? = nil
+
+    func languages(defaults: StudyLanguagePair) throws -> StudyLanguagePair {
+        guard let learning = StudyLanguage(code: learningLanguageCode ?? defaults.learning.code),
+              let translation = StudyLanguage(code: translationLanguageCode ?? defaults.translation.code) else {
+            throw StudyLanguageError.invalidCode
+        }
+        return StudyLanguagePair(learning: learning, translation: translation)
+    }
 }
 
 struct ImportCardDTO: Codable {
@@ -27,24 +37,35 @@ final class ImportDataViewModel {
     
     // MARK: - Templates (static)
     
-    static let jsonTemplate = """
+    var languagePair = StudyLanguagePair.legacy {
+        didSet {
+            parsedGroups = []
+            showDuplicateAlert = false
+        }
+    }
+
+    var jsonTemplate: String { Self.jsonTemplate(for: languagePair) }
+
+    static func jsonTemplate(for pair: StudyLanguagePair) -> String { """
     [
       {
-        "name": "Название группы",
+        "name": "\("import_example_group_name".localized())",
+        "learningLanguageCode": "\(pair.learning.code)",
+        "translationLanguageCode": "\(pair.translation.code)",
         "cards": [
           {
-            "origin": "word",
-            "translated": "перевод",
+            "origin": "\("import_example_word".localized())",
+            "translated": "\("import_example_translation".localized())",
             "originDescription": "",
             "translatedDescription": ""
           }
         ]
       }
     ]
-    """
-    
-    static var aiPromptTemplate: String {
-        let localizedPrompt = "import_ai_prompt_text".localized()
+    """ }
+
+    var aiPromptTemplate: String {
+        let localizedPrompt = String(format: "import_ai_prompt_text".localized(), languagePair.learning.displayName, languagePair.translation.displayName)
         return "\(localizedPrompt)\n\n\(jsonTemplate)"
     }
     
@@ -179,8 +200,10 @@ final class ImportDataViewModel {
     private struct CardKey: Hashable {
         let origin: String
         let translated: String
+        let languages: StudyLanguagePair
 
-        init(_ origin: String, _ translated: String) {
+        init(_ origin: String, _ translated: String, _ languages: StudyLanguagePair) {
+            self.languages = languages
             self.origin = origin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             self.translated = translated.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         }
@@ -212,9 +235,10 @@ final class ImportDataViewModel {
         for group in existingGroups where groupIndex[group.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] == nil {
             groupIndex[group.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] = group
         }
-        for card in existingCards where cardIndex[CardKey(card.originWord, card.translatedWord)] == nil {
-            cardIndex[CardKey(card.originWord, card.translatedWord)] = card
+        for card in existingCards where cardIndex[CardKey(card.originWord, card.translatedWord, card.languagePair)] == nil {
+            cardIndex[CardKey(card.originWord, card.translatedWord, card.languagePair)] = card
         }
+        var knownGroupPairs = groupIndex.mapValues(\.languagePair)
         var knownGroups = Set(groupIndex.keys)
         var knownCards = Set(cardIndex.keys)
         var memberships = Set<Membership>()
@@ -226,19 +250,24 @@ final class ImportDataViewModel {
         var summary = Summary()
         for group in groups {
             let groupKey = group.name.lowercased()
+            let pair = try group.languages(defaults: languagePair)
+            if let existingPair = knownGroupPairs[groupKey], existingPair != pair {
+                throw ImportValidationError(message: String(format: "import_language_conflict".localized(), group.name))
+            }
+            knownGroupPairs[groupKey] = pair
             if knownGroups.insert(groupKey).inserted {
                 summary.groups += 1
-                if write { groupIndex[groupKey] = try groupRepository.create(name: group.name) }
+                if write { groupIndex[groupKey] = try groupRepository.create(name: group.name, languagePair: pair) }
             }
             for dto in group.cards {
-                let cardKey = CardKey(dto.origin, dto.translated)
+                let cardKey = CardKey(dto.origin, dto.translated, pair)
                 if knownCards.insert(cardKey).inserted {
                     summary.cards += 1
                     if write {
                         cardIndex[cardKey] = try cardRepository.create(
                             origin: dto.origin, translated: dto.translated,
                             originDescription: dto.originDescription ?? "",
-                            translatedDescription: dto.translatedDescription ?? "", groups: []
+                            translatedDescription: dto.translatedDescription ?? "", groups: [], languagePair: pair
                         )
                     }
                 } else {
@@ -273,7 +302,9 @@ final class ImportDataViewModel {
                     translatedDescription: card.translatedDescription?.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
             }
-            return ImportGroupDTO(name: name, cards: cards)
+            let pair = try group.languages(defaults: languagePair)
+            return ImportGroupDTO(name: name, cards: cards, learningLanguageCode: pair.learning.code,
+                                  translationLanguageCode: pair.translation.code)
         }
     }
 

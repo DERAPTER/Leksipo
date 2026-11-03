@@ -22,6 +22,14 @@ final class SwiftDataStatsRepository: StatsRepository {
         self.transaction = transaction ?? PersistenceTransaction(context: context)
     }
     
+    func updateStudyLanguages(_ pair: StudyLanguagePair) throws {
+        try transaction.perform {
+            let settings = try settings()
+            transaction.track(settings)
+            settings.languagePair = pair
+        }
+    }
+
     // MARK: - Settings
     
     func settings() throws -> UserSettings {

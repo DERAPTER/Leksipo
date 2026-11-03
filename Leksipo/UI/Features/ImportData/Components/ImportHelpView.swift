@@ -9,6 +9,8 @@ import SwiftUI
 
 struct ImportHelpView: View {
     @Environment(\.dismiss) private var dismiss
+    let jsonTemplate: String
+    let aiPromptTemplate: String
     
     // Состояния для кнопок копирования
     @State private var isJsonCopied = false
@@ -31,7 +33,7 @@ struct ImportHelpView: View {
                             .font(.bodyCustom.weight(.semibold))
                             .foregroundColor(.textPrimary)
                         
-                        Text(ImportDataViewModel.jsonTemplate)
+                        Text(jsonTemplate)
                             .font(.system(.caption, design: .monospaced))
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +44,7 @@ struct ImportHelpView: View {
                                     .stroke(Color.stroke, lineWidth: 1)
                             )
                         
-                        copyButton(text: ImportDataViewModel.jsonTemplate, isCopied: $isJsonCopied, label: "import_copy_template".localized())
+                        copyButton(text: jsonTemplate, isCopied: $isJsonCopied, label: "import_copy_template".localized())
                     }
                     
                     Divider().background(Color.stroke)
@@ -58,7 +60,7 @@ struct ImportHelpView: View {
                             .foregroundColor(.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         
-                        Text(ImportDataViewModel.aiPromptTemplate)
+                        Text(aiPromptTemplate)
                             .font(.system(.caption, design: .monospaced))
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -69,7 +71,7 @@ struct ImportHelpView: View {
                                     .stroke(Color.stroke, lineWidth: 1)
                             )
                         
-                        copyButton(text: ImportDataViewModel.aiPromptTemplate, isCopied: $isPromptCopied, label: "import_copy_prompt".localized())
+                        copyButton(text: aiPromptTemplate, isCopied: $isPromptCopied, label: "import_copy_prompt".localized())
                     }
                     
                     Spacer()

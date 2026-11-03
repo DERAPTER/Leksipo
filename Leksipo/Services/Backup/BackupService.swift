@@ -42,7 +42,9 @@ enum BackupService {
                 repetitions: card.repetitions,
                 nextReviewDate: card.nextReviewDate,
                 lastReviewDate: card.lastReviewDate,
-                groupIDs: card.groups.map(\.id)
+                groupIDs: card.groups.map(\.id),
+                learningLanguageCode: card.languagePair.learning.code,
+                translationLanguageCode: card.languagePair.translation.code
             )
         }
         
@@ -51,7 +53,9 @@ enum BackupService {
                 id: group.id,
                 name: group.name,
                 createdAt: group.createdAt,
-                orderIndex: group.orderIndex
+                orderIndex: group.orderIndex,
+                learningLanguageCode: group.languagePair.learning.code,
+                translationLanguageCode: group.languagePair.translation.code
             )
         }
         
@@ -76,10 +80,13 @@ enum BackupService {
             dailyGoalRewarded: settings.dailyGoalRewarded,
             srsStreak: settings.srsStreak,
             unlockedAchievementIDs: settings.unlockedAchievementIDs,
-            achievementUnlockDates: settings.achievementUnlockDates
+            achievementUnlockDates: settings.achievementUnlockDates,
+            learningLanguageCode: settings.languagePair.learning.code,
+            translationLanguageCode: settings.languagePair.translation.code
         )
         
         let root = BackupRoot(
+            schemaVersion: 2,
             version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             exportDate: .now,
             cards: backupCards,
@@ -120,12 +127,16 @@ enum BackupService {
                 group.name = g.name
                 group.orderIndex = g.orderIndex
                 group.createdAt = g.createdAt
+                group.learningLanguageCode = g.learningLanguageCode
+                group.translationLanguageCode = g.translationLanguageCode
                 groupMap[g.id] = group
             }
             for c in backup.cards {
                 let card = cardMap[c.id] ?? Card(origin: c.originWord, translated: c.translatedWord)
                 if cardMap[c.id] == nil { context.insert(card) }
                 card.id = c.id
+                card.learningLanguageCode = c.learningLanguageCode
+                card.translationLanguageCode = c.translationLanguageCode
                 card.originWord = c.originWord
                 card.translatedWord = c.translatedWord
                 card.originDescription = c.originDescription
@@ -165,6 +176,8 @@ enum BackupService {
             let settings = oldSettings.first(where: { $0.id == "singleton" }) ?? UserSettings()
             if settings.modelContext == nil { context.insert(settings) }
             for old in oldSettings where old !== settings { context.delete(old) }
+            settings.learningLanguageCode = backup.settings.learningLanguageCode
+            settings.translationLanguageCode = backup.settings.translationLanguageCode
             settings.dailyGoal = backup.settings.dailyGoal
             settings.streak = backup.settings.streak
             settings.totalSolved = backup.settings.totalSolved
@@ -185,7 +198,7 @@ enum BackupService {
         let backup: BackupRoot
         do { backup = try decoder.decode(BackupRoot.self, from: data) }
         catch { throw PersistenceError.invalidBackup }
-        guard backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
+        guard backup.schemaVersion == 2 || backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
             throw PersistenceError.unsupportedBackup
         }
         func require(_ condition: Bool) throws {
@@ -201,10 +214,23 @@ enum BackupService {
         try require(groupIDs.count == backup.groups.count)
         try require(Set(backup.cards.map(\.id)).count == backup.cards.count)
         try require(Set(backup.stats.map(\.dateKey)).count == backup.stats.count)
+        func pair(_ learning: String?, _ translation: String?) throws -> StudyLanguagePair {
+            if learning == nil && translation == nil {
+                guard backup.schemaVersion != 2 else { throw PersistenceError.invalidBackup }
+                return .legacy
+            }
+            guard let learning, let translation, let first = StudyLanguage(code: learning),
+                  let second = StudyLanguage(code: translation) else { throw PersistenceError.invalidBackup }
+            return StudyLanguagePair(learning: first, translation: second)
+        }
+        var groupPairs: [UUID: StudyLanguagePair] = [:]
         for g in backup.groups {
+            groupPairs[g.id] = try pair(g.learningLanguageCode, g.translationLanguageCode)
             try require(text(g.name) && count(g.orderIndex) && date(g.createdAt))
         }
         for c in backup.cards {
+            let languages = try pair(c.learningLanguageCode, c.translationLanguageCode)
+            try require(c.groupIDs.allSatisfy { groupPairs[$0] == languages })
             try require(text(c.originWord) && text(c.translatedWord))
             try require(count(c.correctCount) && count(c.wrongCount) && count(c.repetitions))
             try require(c.easeFactor.isFinite && (1.3...100).contains(c.easeFactor))
@@ -238,6 +264,7 @@ enum BackupService {
             try require(date(s.date) && abs(keyDate.timeIntervalSince(s.date)) <= 86_400 && count(s.solvedCount))
         }
         let s = backup.settings
+        _ = try pair(s.learningLanguageCode, s.translationLanguageCode)
         try require((1...100).contains(s.dailyGoal) && count(s.streak) && count(s.srsStreak) && count(s.totalSolved) && date(s.lastActiveDate))
         let unlocked = Set(s.unlockedAchievementIDs)
         try require(unlocked.count == s.unlockedAchievementIDs.count)

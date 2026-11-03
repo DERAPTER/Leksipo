@@ -15,20 +15,20 @@ final class AddFirstCardViewModel {
     }
 
     func save(origin: String, translated: String, originDescription: String, translatedDescription: String,
-              group: CardGroup?, isFavourite: Bool) -> Bool {
+              group: CardGroup?, isFavourite: Bool, languagePair: StudyLanguagePair? = nil) -> Bool {
         errorMessage = nil
         let origin = origin.trimmingCharacters(in: .whitespacesAndNewlines)
         let translated = translated.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !origin.isEmpty, !translated.isEmpty else { return false }
         do {
-            guard try !cards.exists(origin: origin, translated: translated, excluding: nil) else {
+            guard try !cards.exists(origin: origin, translated: translated, excluding: nil, languagePair: languagePair ?? group?.languagePair) else {
                 errorMessage = "duplicate_card_message".localized()
                 return false
             }
             try transaction.perform {
                 let card = try cards.create(origin: origin, translated: translated,
                                             originDescription: originDescription, translatedDescription: translatedDescription,
-                                            groups: group.map { [$0] } ?? [])
+                                            groups: group.map { [$0] } ?? [], languagePair: languagePair ?? group?.languagePair)
                 if isFavourite { try cards.toggleFavourite(card) }
             }
             achievements.evaluate()
