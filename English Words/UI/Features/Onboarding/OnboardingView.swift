@@ -119,14 +119,19 @@ struct OnboardingView: View {
         VStack(spacing: 32) {
             Spacer()
             
-            ZStack {
-                Circle()
-                    .fill(page.color.opacity(0.15))
+            if page.isNameEntry {
+                MascotView(pose: .welcome)
                     .frame(width: 200, height: 200)
-                
-                Image(systemName: page.icon)
-                    .font(.system(size: 80))
-                    .foregroundColor(page.color)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(page.color.opacity(0.15))
+                        .frame(width: 200, height: 200)
+
+                    Image(systemName: page.icon)
+                        .font(.system(size: 80))
+                        .foregroundColor(page.color)
+                }
             }
             
             VStack(spacing: 16) {

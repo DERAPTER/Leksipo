@@ -45,9 +45,8 @@ struct SRSResultView: View {
     
     private var header: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 70))
-                .foregroundColor(.accent)
+            MascotView(pose: .success)
+                .frame(width: 180, height: 150)
             
             Text("srs_result_title".localized())
                 .font(.largeTitleCustom)

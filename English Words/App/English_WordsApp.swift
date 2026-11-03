@@ -49,7 +49,16 @@ struct English_WordsApp: App {
             }
             .task {
                 guard ProcessInfo.processInfo.environment["ENGLISH_WORDS_TEST_HOST"] != "1" else { return }
-                startup.start()
+                // Даём приветствию отобразиться и завершить анимацию до открытия базы.
+                do {
+                    try await Task.sleep(for: .milliseconds(1200))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    startup.start()
+                }
                 startup.app?.srsIntegration?.refresh(force: true)
             }
         }

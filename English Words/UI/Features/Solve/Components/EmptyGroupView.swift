@@ -16,9 +16,8 @@ struct EmptyGroupView: View {
         VStack(spacing: 24) {
             Spacer()
             
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 80))
-                .foregroundColor(.accent)
+            MascotView(pose: .idle)
+                .frame(width: 180, height: 180)
                 .padding(.bottom, 8)
             
             Text("empty_group_title".localized())

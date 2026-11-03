@@ -174,9 +174,8 @@ struct SRSOverviewView: View {
     
     private func caughtUpCard(_ overview: SRSOverview) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 44))
-                .foregroundColor(.correct)
+            MascotView(pose: .rest)
+                .frame(width: 180, height: 130)
             
             Text("srs_overview_all_caught_up".localized())
                 .font(.titleCustom)

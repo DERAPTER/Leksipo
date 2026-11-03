@@ -71,9 +71,8 @@ struct ResultView: View {
                 .frame(width: 180, height: 180)
             
             if percentageOfCorrect == 100 {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 60, weight: .bold))
-                    .foregroundColor(.accent)
+                MascotView(pose: .celebrate)
+                    .frame(width: 150, height: 150)
             } else {
                 Text("\(percentageOfCorrect)%")
                     .font(.system(size: 40, weight: .bold))

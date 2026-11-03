@@ -155,16 +155,14 @@ struct SRSWidgetEntryView: View {
     // MARK: - Medium Widget
 
     private var mediumView: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(stateColor.opacity(0.15))
-
-                Image(systemName: iconName)
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(stateColor)
-            }
-            .frame(width: 60, height: 60)
+        HStack(spacing: 12) {
+            Image(decorative: hasDue ? "dachshund-idle" : "dachshund-rest")
+                .renderingMode(.original)
+                .resizable()
+                .widgetAccentedRenderingMode(.fullColor)
+                .scaledToFit()
+                .frame(width: 80, height: 100)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
@@ -173,13 +171,13 @@ struct SRSWidgetEntryView: View {
                     Text(localized(hasDue ? "widget_time_to_review" : "widget_review_streak"))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(colors.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.8)
 
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(colors.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -194,9 +192,7 @@ struct SRSWidgetEntryView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             }
-            .frame(maxHeight: .infinity)
-
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
             Text("\(number)")
                 .font(.system(size: 42, weight: .bold, design: .rounded))
@@ -204,6 +200,7 @@ struct SRSWidgetEntryView: View {
                 .contentTransition(.numericText())
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
+                .frame(maxWidth: 72, alignment: .trailing)
                 .widgetAccentable()
         }
     }
@@ -232,47 +229,51 @@ struct SRSWidgetEntryView: View {
 #Preview("Small — due", as: .systemSmall) {
     SRSWidget()
 } timeline: {
-    SRSWidgetEntry(date: .now, snapshot: SRSWidgetSnapshot(
+    let now = Date.now
+    SRSWidgetEntry(date: now, snapshot: SRSWidgetSnapshot(
         dueToday: 12,
         srsStreak: 5,
         nextReviewDate: nil,
         nextReviewCount: 0,
-        updatedAt: .now
+        updatedAt: now
     ))
 }
 
 #Preview("Small — streak", as: .systemSmall) {
     SRSWidget()
 } timeline: {
-    SRSWidgetEntry(date: .now, snapshot: SRSWidgetSnapshot(
+    let now = Date.now
+    SRSWidgetEntry(date: now, snapshot: SRSWidgetSnapshot(
         dueToday: 0,
         srsStreak: 7,
         nextReviewDate: nil,
         nextReviewCount: 0,
-        updatedAt: .now
+        updatedAt: now
     ))
 }
 
 #Preview("Medium — due", as: .systemMedium) {
     SRSWidget()
 } timeline: {
-    SRSWidgetEntry(date: .now, snapshot: SRSWidgetSnapshot(
+    let now = Date.now
+    SRSWidgetEntry(date: now, snapshot: SRSWidgetSnapshot(
         dueToday: 12,
         srsStreak: 5,
         nextReviewDate: nil,
         nextReviewCount: 0,
-        updatedAt: .now
+        updatedAt: now
     ))
 }
 
 #Preview("Medium — caught up", as: .systemMedium) {
     SRSWidget()
 } timeline: {
-    SRSWidgetEntry(date: .now, snapshot: SRSWidgetSnapshot(
+    let now = Date.now
+    SRSWidgetEntry(date: now, snapshot: SRSWidgetSnapshot(
         dueToday: 0,
         srsStreak: 7,
         nextReviewDate: nil,
         nextReviewCount: 0,
-        updatedAt: .now
+        updatedAt: now
     ))
 }
