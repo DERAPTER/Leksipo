@@ -27,12 +27,15 @@ struct ImportDataView: View {
     @State private var source = Source.table
     @State private var languageLoadError: String?
     @State private var showHelpSheet = false
+    private let initialFileURL: URL?
     
     // Состояния для анимации копирования
     @State private var isTemplateCopied = false
     @State private var isPromptCopied = false
     
-    init(container: AppContainer, onComplete: @escaping () -> Void) {
+    init(container: AppContainer, initialFileURL: URL? = nil, onComplete: @escaping () -> Void) {
+        self.initialFileURL = initialFileURL
+        _source = State(initialValue: initialFileURL == nil ? .table : .json)
         let importer = ImportDataViewModel(
             cardRepository: container.cardRepository,
             groupRepository: container.groupRepository,
@@ -51,48 +54,64 @@ struct ImportDataView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Picker("import_title".localized(), selection: $source) {
-                        ForEach(Source.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented).padding(.horizontal)
-                    if source == .table {
-                        TableImportContent(viewModel: tableViewModel, onClose: { dismiss() })
+                    if let initialFileURL {
+                        sharedFileContent(initialFileURL)
                     } else {
-                        jsonContent
+                        Picker("import_title".localized(), selection: $source) {
+                            ForEach(Source.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented).padding(.horizontal)
+                        if source == .table {
+                            TableImportContent(viewModel: tableViewModel, onClose: { dismiss() })
+                        } else {
+                            jsonContent
+                        }
                     }
                     if let languageLoadError {
                         Text(languageLoadError).font(.captionCustom).foregroundStyle(Color.red).padding(.horizontal)
                     }
                 }
                 .padding(.top, 12)
+                .disabled(viewModel.isLoadingFile)
             }
-            .onAppear {
-                guard !didLoadLanguages else { return }
-                do {
-                    viewModel.languagePair = try container.statsRepository.settings().languagePair
-                    tableViewModel.languagePair = viewModel.languagePair
-                    languageLoadError = nil
-                    didLoadLanguages = true
-                } catch { languageLoadError = error.localizedDescription }
+            .overlay {
+                if viewModel.isLoadingFile {
+                    ProgressView("group_import_loading".localized())
+                        .padding().background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .task(id: initialFileURL) {
+                if !didLoadLanguages {
+                    do {
+                        viewModel.languagePair = try container.statsRepository.settings().languagePair
+                        tableViewModel.languagePair = viewModel.languagePair
+                        languageLoadError = nil
+                        didLoadLanguages = true
+                    } catch { languageLoadError = error.localizedDescription }
+                }
+                if let initialFileURL { await viewModel.loadSharedFile(initialFileURL) }
             }
             .onChange(of: source) { _, source in
                 if source == .json { viewModel.languagePair = tableViewModel.languagePair }
                 else { tableViewModel.languagePair = viewModel.languagePair }
             }
             .background(Color.appBackground.ignoresSafeArea())
-            .navigationTitle("import_title".localized())
+            .navigationTitle((initialFileURL == nil ? "import_title" : "group_import_title").localized())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("cancel".localized()) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("import_btn".localized()) {
-                        if source == .table { tableViewModel.importTable() }
+                    Button((initialFileURL == nil ? "import_btn" : "group_import_confirm").localized()) {
+                        if initialFileURL != nil { viewModel.confirmImportWithDuplicates() }
+                        else if source == .table { tableViewModel.importTable() }
                         else { viewModel.startImport(from: viewModel.jsonText) }
                     }
                     // Блокируем кнопку импорта, если текст не вставлен
-                    .disabled(!didLoadLanguages || (source == .table ? !tableViewModel.canImport : viewModel.jsonText.isEmpty))
+                    .disabled(!didLoadLanguages || viewModel.isLoadingFile || (initialFileURL != nil
+                        ? viewModel.previewCardCounts == nil || viewModel.showSuccessAlert
+                        : (source == .table ? !tableViewModel.canImport : viewModel.jsonText.isEmpty)))
                     .fontWeight(.semibold)
                 }
             }
@@ -106,9 +125,12 @@ struct ImportDataView: View {
             ) { result in
                 viewModel.handleFileSelection(result)
             }
-            .alert("import_preview_title".localized(), isPresented: $viewModel.showDuplicateAlert) {
+            .alert("import_preview_title".localized(), isPresented: Binding(
+                get: { initialFileURL == nil && viewModel.showDuplicateAlert },
+                set: { viewModel.showDuplicateAlert = $0 }
+            )) {
                 Button("cancel".localized(), role: .cancel) { }
-                Button("ok".localized()) { viewModel.confirmImportWithDuplicates() }
+                Button("import_btn".localized()) { viewModel.confirmImportWithDuplicates() }
             } message: {
                 Text(viewModel.previewMessage)
             }
@@ -118,6 +140,36 @@ struct ImportDataView: View {
                 Text(viewModel.successMessage)
             }
         }
+    }
+
+    private func sharedFileContent(_ url: URL) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Label(url.lastPathComponent, systemImage: "doc.text")
+                .font(.bodyCustom.weight(.semibold))
+            if let counts = viewModel.previewCardCounts {
+                Text(viewModel.previewGroupDetails).font(.bodyCustom)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(alignment: .top, spacing: 24) {
+                    importCount(counts.new, title: "group_import_new".localized())
+                    importCount(counts.existing, title: "group_import_existing".localized())
+                }
+                Text("group_import_merge_hint".localized()).font(.captionCustom)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            if let error = viewModel.errorMessage {
+                Text(error).font(.bodyCustom).foregroundStyle(Color.red)
+            }
+        }
+        .padding().frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+    }
+
+    private func importCount(_ count: Int, title: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(count)").font(.title.weight(.semibold)).foregroundStyle(Color.accent)
+            Text(title).font(.captionCustom).foregroundStyle(Color.textSecondary)
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var jsonContent: some View {

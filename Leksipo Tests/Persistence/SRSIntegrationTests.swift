@@ -434,3 +434,27 @@ extension SRSIntegrationTests {
         #expect(f.probe.requests.count == SRSReminderPlan.capacity)
     }
 }
+
+extension SRSIntegrationTests {
+    @Test("Файл группы сохраняет маршрут до готовности интерфейса")
+    func groupFileRoute() {
+        let router = AppRouter()
+        let url = URL(fileURLWithPath: "/tmp/К экзамену.JSON")
+        #expect(router.handle(url))
+        #expect(router.pendingRoute == .groupImport(url))
+        router.consume(.srs)
+        #expect(router.pendingRoute == .groupImport(url))
+        router.consume(.groupImport(url))
+        #expect(router.pendingRoute == nil)
+    }
+
+    @Test("Другие файлы и удалённые ссылки не заменяют ожидающий маршрут", arguments: ["https://example.com/group.json", "file:///tmp/group.txt", "file:///tmp/group.json/", "file:///tmp/group.json?x=1", "file:///tmp/group.json#fragment"])
+    func rejectedGroupRoutes(value: String) throws {
+        let router = AppRouter()
+        let srs = try #require(URL(string: "leksipo://srs"))
+        #expect(router.handle(srs))
+        let file = try #require(URL(string: value))
+        #expect(!router.handle(file))
+        #expect(router.pendingRoute == .srs)
+    }
+}

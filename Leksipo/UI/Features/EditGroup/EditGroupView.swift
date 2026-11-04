@@ -42,6 +42,8 @@ struct EditGroupView: View {
                     infoSection
                     
                     saveButton
+
+                    shareButton
                     
                     deleteButton
                     
@@ -186,6 +188,21 @@ struct EditGroupView: View {
         .padding(.horizontal)
     }
     
+    private var shareButton: some View {
+        ShareLink(item: SharedGroupDocument(group: viewModel.group),
+                  preview: SharePreview(viewModel.group.name, image: Image(systemName: "rectangle.stack"))) {
+            Label("share_group".localized(), systemImage: "square.and.arrow.up")
+                .font(.bodyCustom)
+                .foregroundStyle(Color.accent)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.stroke, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
+    }
+
     private var deleteButton: some View {
         Button(role: .destructive) {
             viewModel.showDeleteConfirmation = true

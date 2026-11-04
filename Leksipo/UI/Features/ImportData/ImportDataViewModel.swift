@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct ImportGroupDTO: Codable {
+struct ImportGroupDTO: Codable, Sendable {
     let name: String
     let cards: [ImportCardDTO]
     var learningLanguageCode: String? = nil
@@ -24,7 +24,7 @@ struct ImportGroupDTO: Codable {
     }
 }
 
-struct ImportCardDTO: Codable {
+struct ImportCardDTO: Codable, Sendable {
     let origin: String
     let translated: String
     let originDescription: String?
@@ -40,6 +40,7 @@ final class ImportDataViewModel {
     var languagePair = StudyLanguagePair.legacy {
         didSet {
             parsedGroups = []
+            previewCardCounts = nil
             showDuplicateAlert = false
         }
     }
@@ -74,6 +75,7 @@ final class ImportDataViewModel {
     var jsonText: String = "" {
         didSet {
             parsedGroups = []
+            previewCardCounts = nil
             showDuplicateAlert = false
             showSuccessAlert = false
         }
@@ -87,6 +89,13 @@ final class ImportDataViewModel {
     
     private var parsedGroups: [ImportGroupDTO] = []
     private(set) var previewMessage = ""
+    private(set) var previewGroupDetails = ""
+    struct CardCounts: Equatable {
+        let new: Int
+        let existing: Int
+    }
+    private(set) var previewCardCounts: CardCounts?
+    private(set) var isLoadingFile = false
     private let achievementsService: AchievementsService?
     private let cardRepository: CardRepository
     private let groupRepository: GroupRepository
@@ -150,9 +159,40 @@ final class ImportDataViewModel {
     
     // MARK: - Import
 
+    func loadSharedFile(_ url: URL) async {
+        jsonText = ""
+        errorMessage = nil
+        isLoadingFile = true
+        defer { isLoadingFile = false }
+        let reading = Task.detached(priority: .userInitiated) {
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            try Task.checkCancellation()
+            return try Data(contentsOf: url)
+        }
+        do {
+            let data = try await withTaskCancellationHandler {
+                try await reading.value
+            } onCancel: { reading.cancel() }
+            try Task.checkCancellation()
+            guard let text = String(data: data, encoding: .utf8) else {
+                errorMessage = "import_error_encoding".localized()
+                return
+            }
+            jsonText = text
+            startImport(from: text)
+        } catch is CancellationError {
+            // Закрытие окна отменяет только чтение: данные ещё не изменялись.
+        } catch {
+            guard !Task.isCancelled else { return }
+            errorMessage = "import_error_file".localized()
+        }
+    }
+
     func startImport(from text: String) {
         errorMessage = nil
         parsedGroups = []
+        previewCardCounts = nil
         showDuplicateAlert = false
         showSuccessAlert = false
         do {
@@ -162,7 +202,18 @@ final class ImportDataViewModel {
                 return
             }
             parsedGroups = try normalized(groups)
-            previewMessage = try process(groups: parsedGroups, write: false).message + "\n\n" + "import_merge_rules".localized()
+            let summary = try process(groups: parsedGroups, write: false)
+            previewCardCounts = CardCounts(new: summary.cards, existing: summary.existingCards)
+            let names = try parsedGroups.map {
+                String(format: "group_import_preview_name".localized(), $0.name,
+                       try $0.languages(defaults: languagePair).displayName)
+            }.joined(separator: "\n")
+            previewGroupDetails = names
+            previewMessage = names + "\n\n" + String(format: "group_import_preview_counts".localized(), summary.cards, summary.existingCards)
+            if summary.repeatedCards > 0 {
+                previewMessage += "\n" + String(format: "group_import_preview_repeats".localized(), summary.repeatedCards)
+            }
+            previewMessage += "\n\n" + "import_merge_rules".localized()
             showDuplicateAlert = true
         } catch let error as DecodingError {
             let context: DecodingError.Context
@@ -224,6 +275,8 @@ final class ImportDataViewModel {
         var cards = 0
         var links = 0
         var duplicates = 0
+        var existingCards = 0
+        var repeatedCards = 0
 
         var message: String {
             String(format: "import_summary".localized(), groups, cards, links, duplicates)
@@ -246,6 +299,9 @@ final class ImportDataViewModel {
         var knownGroupPairs = groupIndex.mapValues(\.languagePair)
         var knownGroups = Set(groupIndex.keys)
         var knownCards = Set(cardIndex.keys)
+        let existingCardKeys = knownCards
+        var seenSourceCards = Set<CardKey>()
+        var seenExistingCards = Set<CardKey>()
         var memberships = Set<Membership>()
         for (key, card) in cardIndex {
             for group in card.groups {
@@ -266,6 +322,10 @@ final class ImportDataViewModel {
             }
             for dto in group.cards {
                 let cardKey = CardKey(dto.origin, dto.translated, pair)
+                if !seenSourceCards.insert(cardKey).inserted { summary.repeatedCards += 1 }
+                if existingCardKeys.contains(cardKey), seenExistingCards.insert(cardKey).inserted {
+                    summary.existingCards += 1
+                }
                 if knownCards.insert(cardKey).inserted {
                     summary.cards += 1
                     if write {

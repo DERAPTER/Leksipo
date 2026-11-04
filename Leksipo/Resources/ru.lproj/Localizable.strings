@@ -795,3 +795,15 @@
 "table_skip_quotes" = "незакрытые или некорректные кавычки в ячейке";
 "table_skip_duplicate" = "эта пара уже встречалась выше";
 "table_skip_present" = "эта карточка уже есть в выбранной группе";
+
+// Group sharing
+"share_group" = "Поделиться группой";
+"group_import_title" = "Импорт группы";
+"group_import_confirm" = "Добавить";
+"group_import_loading" = "Чтение группы…";
+"group_import_preview_name" = "%@\n%@";
+"group_import_preview_counts" = "Добавится карточек: %d\nУже есть: %d";
+"group_import_preview_repeats" = "Повторов в файле: %d";
+"group_import_new" = "Добавится карточек";
+"group_import_existing" = "Уже есть";
+"group_import_merge_hint" = "Совпадающие карточки добавятся в эту группу без копий. Ваши пояснения и прогресс повторений сохранятся. Группа с таким же названием и языками будет дополнена.";

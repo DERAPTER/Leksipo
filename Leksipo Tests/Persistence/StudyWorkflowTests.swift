@@ -948,3 +948,158 @@ extension StudyWorkflowTests {
         #expect(try f.cards.totalCount() == 0)
     }
 }
+
+extension StudyWorkflowTests {
+    @Test("Обмен экспортирует только одну группу, языки и пояснения, сохраняя независимый снимок")
+    func sharedGroupSnapshot() async throws {
+        let f = try WorkflowFixture()
+        let french = try #require(StudyLanguage(code: "fr"))
+        let pair = StudyLanguagePair(learning: french, translation: .russian)
+        let group = try f.groups.create(name: "К экзамену", languagePair: pair)
+        let first = try f.cards.create(origin: "bonjour", translated: "здравствуйте", originDescription: "salutation",
+                                       translatedDescription: "вежливо", groups: [group], languagePair: pair)
+        _ = try f.cards.create(origin: "au revoir", translated: "до свидания", groups: [group], languagePair: pair)
+        let other = try f.groups.create(name: "Личное", languagePair: pair)
+        try f.groups.addCard(first, to: other)
+        _ = try f.cards.create(origin: "secret", translated: "секрет", groups: [other], languagePair: pair)
+        first.isFavourite = true
+        first.correctCount = 70
+        first.intervalDays = 30
+        first.nextReviewDate = .distantFuture
+        let snapshot = SharedGroupDocument(group: group)
+        first.originDescription = "edited later"
+        let data = try await Task.detached { try snapshot.encodedData() }.value
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        #expect(json.count == 1)
+        let object = try #require(json.first)
+        #expect(Set(object.keys) == ["name", "cards", "learningLanguageCode", "translationLanguageCode"])
+        #expect(object["learningLanguageCode"] as? String == "fr")
+        #expect(object["translationLanguageCode"] as? String == "ru")
+        let exported = try #require(object["cards"] as? [[String: Any]])
+        #expect(exported.count == 2)
+        #expect(exported.first?["origin"] as? String == "au revoir")
+        #expect(exported.last?["originDescription"] as? String == "salutation")
+        #expect(exported.last?["translatedDescription"] as? String == "вежливо")
+        for card in exported {
+            #expect(Set(card.keys) == ["origin", "translated", "originDescription", "translatedDescription"])
+        }
+        let recipient = try WorkflowFixture()
+        let vm = recipient.importer()
+        vm.startImport(from: String(decoding: data, as: UTF8.self))
+        #expect(vm.previewCardCounts == .init(new: 2, existing: 0))
+        vm.confirmImportWithDuplicates()
+        let received = try #require(try recipient.cards.fetchAll().first { $0.originWord == "bonjour" })
+        #expect(received.originDescription == "salutation")
+        #expect(received.translatedDescription == "вежливо")
+        #expect(received.languagePair == pair)
+        #expect(!received.isFavourite)
+        #expect(received.correctCount == 0)
+        #expect(received.intervalDays == 0)
+        #expect(received.nextReviewDate == nil)
+        #expect(try recipient.groups.userGroupsCount() == 1)
+    }
+
+    @Test("25 выражений: предпросмотр считает уникальные новые и существующие карточки до подтверждения")
+    func sharedGroupCountsAndMerge() throws {
+        let f = try WorkflowFixture()
+        let old = try f.cards.create(origin: " WORD0 ", translated: " перевод0 ", originDescription: "моё пояснение",
+                                     translatedDescription: "моё значение", groups: [])
+        _ = try f.cards.create(origin: "word1", translated: "перевод1", groups: [])
+        old.nextReviewDate = .distantFuture
+        old.intervalDays = 30
+        old.wrongCount = 5
+        try f.container.mainContext.save()
+        var cards = (0..<25).map { ImportCardDTO(origin: "word\($0)", translated: "перевод\($0)",
+                                               originDescription: "чужое пояснение", translatedDescription: nil) }
+        cards.append(cards[0])
+        let data = try JSONEncoder().encode([ImportGroupDTO(name: "Экзамен", cards: cards,
+                                                          learningLanguageCode: "en", translationLanguageCode: "ru")])
+        let vm = f.importer()
+        vm.startImport(from: String(decoding: data, as: UTF8.self))
+        #expect(vm.previewCardCounts == .init(new: 23, existing: 2))
+        #expect(try f.cards.totalCount() == 2)
+        #expect(try f.groups.userGroupsCount() == 0)
+        vm.confirmImportWithDuplicates()
+        #expect(vm.showSuccessAlert)
+        #expect(try f.cards.totalCount() == 25)
+        #expect(try f.groups.fetchUserGroups().first?.cards.count == 25)
+        #expect(old.originDescription == "моё пояснение")
+        #expect(old.translatedDescription == "моё значение")
+        #expect(old.nextReviewDate == .distantFuture)
+        #expect(old.intervalDays == 30)
+        #expect(old.wrongCount == 5)
+        vm.startImport(from: String(decoding: data, as: UTF8.self))
+        #expect(vm.previewCardCounts == .init(new: 0, existing: 25))
+        vm.confirmImportWithDuplicates()
+        #expect(try f.cards.totalCount() == 25)
+        #expect(try f.groups.userGroupsCount() == 1)
+    }
+
+    @Test("Повторы внутри файла не считаются карточками получателя, другая языковая пара независима")
+    func sharedGroupLanguageCounts() throws {
+        let f = try WorkflowFixture()
+        _ = try f.card("chat")
+        let vm = f.importer()
+        vm.startImport(from: #"[{"name":"Français","learningLanguageCode":"fr","translationLanguageCode":"ru","cards":[{"origin":"chat","translated":"перевод"},{"origin":" CHAT ","translated":"перевод"}]}]"#)
+        #expect(vm.previewCardCounts == .init(new: 1, existing: 0))
+        vm.confirmImportWithDuplicates()
+        #expect(try f.cards.totalCount() == 2)
+    }
+
+    @Test("Полученный файл открывает предпросмотр и не записывает данные автоматически")
+    func openSharedFile() async throws {
+        let f = try WorkflowFixture()
+        let group = try f.groups.create(name: "Empty")
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("Group-\(UUID()).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try SharedGroupDocument(group: group).encodedData().write(to: file)
+        let recipient = try WorkflowFixture()
+        let vm = recipient.importer()
+        await vm.loadSharedFile(file)
+        #expect(vm.errorMessage == nil)
+        #expect(!vm.isLoadingFile)
+        #expect(vm.previewCardCounts == .init(new: 0, existing: 0))
+        #expect(try recipient.groups.userGroupsCount() == 0)
+        vm.confirmImportWithDuplicates()
+        #expect(try recipient.groups.userGroupsCount() == 1)
+    }
+
+    @Test("Ошибки и отмена чтения полученного файла не оставляют старое подтверждение", arguments: ["missing", "encoding", "malformed", "cancelled"])
+    func failedSharedFile(kind: String) async throws {
+        let f = try WorkflowFixture()
+        let vm = f.importer()
+        vm.startImport(from: #"[{"name":"Old","cards":[]}]"#)
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("Group-\(UUID()).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        if kind == "encoding" { try Data([0xff, 0xfe]).write(to: file) }
+        if kind == "malformed" { try Data("{bad}".utf8).write(to: file) }
+        if kind == "cancelled" {
+            try Data(#"[{"name":"New","cards":[]}]"#.utf8).write(to: file)
+            let task = Task { await vm.loadSharedFile(file) }
+            task.cancel()
+            await task.value
+            #expect(vm.errorMessage == nil)
+        } else {
+            await vm.loadSharedFile(file)
+            #expect(vm.errorMessage != nil)
+        }
+        #expect(vm.previewCardCounts == nil)
+        #expect(!vm.showDuplicateAlert)
+        #expect(!vm.isLoadingFile)
+        vm.confirmImportWithDuplicates()
+        #expect(try f.groups.userGroupsCount() == 0)
+    }
+
+    @Test("Имя общего файла не содержит путей и укладывается в ограничение длины")
+    func sharedFileName() throws {
+        let f = try WorkflowFixture()
+        let group = try f.groups.create(name: "../Examen/Français:\n" + String(repeating: "🐕", count: 100))
+        let document = SharedGroupDocument(group: group)
+        #expect(document.name == group.name)
+        #expect(document.fileName.hasSuffix(".json"))
+        #expect(!document.fileName.contains("/"))
+        #expect(!document.fileName.contains(":"))
+        #expect(!document.fileName.contains("\n"))
+        #expect(document.fileName.utf8.count <= 125)
+    }
+}

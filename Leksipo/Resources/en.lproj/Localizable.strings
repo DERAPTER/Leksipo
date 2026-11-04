@@ -794,3 +794,15 @@
 "table_skip_quotes" = "unclosed or malformed quotes in a cell";
 "table_skip_duplicate" = "this pair already appeared above";
 "table_skip_present" = "this card is already in the selected group";
+
+// Group sharing
+"share_group" = "Share group";
+"group_import_title" = "Import group";
+"group_import_confirm" = "Add";
+"group_import_loading" = "Reading group…";
+"group_import_preview_name" = "%@\n%@";
+"group_import_preview_counts" = "Cards to add: %d\nAlready in your collection: %d";
+"group_import_preview_repeats" = "Repeated cards in file: %d";
+"group_import_new" = "Cards to add";
+"group_import_existing" = "Already in your collection";
+"group_import_merge_hint" = "Matching cards will be linked to this group without creating copies. Your explanations and review progress will be preserved. A group with the same name and languages will be updated.";

@@ -18,6 +18,12 @@ struct RootView: View {
     @State private var selectedTab: TabItem = TabItem(screen: .cardsGroups)
     @State private var refreshTrigger = false
     @State private var tabBarVisibility = TabBarVisibility()
+    @State private var incomingGroup: IncomingGroup?
+
+    private struct IncomingGroup: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
     
     private var tabs: [TabItem] { TabItem.all }
     
@@ -43,6 +49,12 @@ struct RootView: View {
         }
         .onChange(of: router.pendingRoute) { _, _ in applyPendingRoute() }
         .onChange(of: hasCompletedOnboarding) { _, _ in applyPendingRoute() }
+        .sheet(item: $incomingGroup, onDismiss: { applyPendingRoute() }) { request in
+            ImportDataView(container: container, initialFileURL: request.url) {
+                selectedTab = TabItem(screen: .cardsGroups)
+                refreshTrigger.toggle()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
             refreshTrigger.toggle()
         }
@@ -94,6 +106,9 @@ struct RootView: View {
         guard hasCompletedOnboarding, let route = router.pendingRoute else { return }
         switch route {
         case .srs: selectedTab = TabItem(screen: .srsReview)
+        case .groupImport(let url):
+            guard incomingGroup == nil else { return }
+            incomingGroup = IncomingGroup(url: url)
         }
         router.consume(route)
     }
