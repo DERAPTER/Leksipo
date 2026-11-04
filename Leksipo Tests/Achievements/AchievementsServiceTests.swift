@@ -136,7 +136,7 @@ struct AchievementsServiceTests {
         #expect(ids.contains("solved_50"))
     }
     
-    @Test("evaluate: streak берётся из settings.streak")
+    @Test("evaluate: архивная серия не превращается в новую SRS-награду")
     func evaluateStreakFromSettings() throws {
         let s = try settings()
         s.streak = 7
@@ -144,10 +144,10 @@ struct AchievementsServiceTests {
         
         let unlocked = service.evaluate()
         let ids = Set(unlocked.map(\.id))
-        #expect(ids == ["streak_3", "streak_7"])
+        #expect(ids.isEmpty)
     }
     
-    @Test("evaluate: daysGoalCompleted считается через totalDaysGoalCompleted")
+    @Test("evaluate: архивные выполненные цели не создают новые награды")
     func evaluateDaysGoalCompleted() throws {
         // Вставляем 3 записи с goalCompleted = true
         for day in 10...12 {
@@ -160,7 +160,7 @@ struct AchievementsServiceTests {
         try repos.container.mainContext.save()
         
         let unlocked = service.evaluate()
-        #expect(unlocked.map(\.id) == ["goal_1"])
+        #expect(unlocked.isEmpty)
     }
     
     @Test("evaluate: favouritesCount берётся из карточек")

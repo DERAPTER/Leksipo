@@ -81,8 +81,10 @@ extension PersistenceTransaction {
                                repetitions: card.repetitions, nextReviewDate: card.nextReviewDate,
                                lastReviewDate: card.lastReviewDate, groupIDs: [])
         let groups = card.groups
+        let recovery = card.srsRecoveryPending
         let learning = card.learningLanguageCode, translation = card.translationLanguageCode
         remember(card) {
+            card.srsRecoveryPending = recovery
             card.learningLanguageCode = learning
             card.translationLanguageCode = translation
             card.id = value.id
@@ -124,8 +126,10 @@ extension PersistenceTransaction {
         let last = settings.lastActiveDate, rewarded = settings.dailyGoalRewarded, srs = settings.srsStreak
         let ids = settings.unlockedAchievementIDs, dates = settings.achievementUnlockDates
         let sessions = settings.solveSessionsData, migrated = settings.legacyMigrationCompleted
+        let milestones = settings.srsMilestonesRaw
         let learning = settings.learningLanguageCode, translation = settings.translationLanguageCode
         remember(settings) {
+            settings.srsMilestonesRaw = milestones
             settings.learningLanguageCode = learning
             settings.translationLanguageCode = translation
             settings.dailyGoal = goal

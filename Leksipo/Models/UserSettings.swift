@@ -14,10 +14,11 @@ import SwiftData
 final class UserSettings {
     @Attribute(.unique) var id: String
     
-    // Ежедневная цель
+    // Архивные поля прежней дневной цели; сохраняются для совместимости бэкапов.
     var dailyGoal: Int
     
     // Серия и общая статистика
+    // Архивная серия прежней дневной цели; текущая серия хранится в srsStreak.
     var streak: Int
     var totalSolved: Int
     var lastActiveDate: Date
@@ -26,6 +27,9 @@ final class UserSettings {
     /// Серия дней подряд, в которые разгребены все SRS-карточки.
     /// Обновляется отдельно от `streak` через `StatsRepository.markSRSCleared`.
     var srsStreak: Int = 0
+
+    /// События, сохранённые вместе с ответом. Сервис наград обрабатывает их после commit.
+    var srsMilestonesRaw: Int? = nil
     
     // Optional-поля позволяют открыть существующую базу без потери данных.
     var solveSessionsData: Data? = nil

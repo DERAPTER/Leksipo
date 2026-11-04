@@ -40,7 +40,7 @@ private final class WorkflowFixture {
         store = SolveSessionStore(defaults: defaults, transaction: tx)
         try store.migrateLegacySessions()
         coordinator = SolveSessionCoordinator(store: store, cardRepository: cards, defaults: defaults, now: { clock.date }, calendar: calendar)
-        recorder = AnswerRecordingService(transaction: tx, cards: cards, stats: stats, coordinator: coordinator)
+        recorder = AnswerRecordingService(transaction: tx, cards: cards, stats: stats, coordinator: coordinator, calendar: calendar)
         achievements = AchievementsService(statsRepository: stats, cardRepository: cards, groupRepository: groups)
     }
 
@@ -234,36 +234,19 @@ struct StudyWorkflowTests {
         #expect(resumed.nextReviewCount == 2)
     }
 
-    @Test("Изменение цели действует сегодня, не меняет вчерашний флаг и не дублирует серию")
-    func goalChangesToday() throws {
+    @Test("Старая настройка цели больше не меняет результаты дня и не создаёт серию")
+    func legacyGoalHasNoEffectOnNewAnswers() throws {
         let f = try WorkflowFixture()
+        try f.stats.updateDailyGoal(1)
+        _ = try f.stats.recordSolved(on: f.clock.date)
+        let previous = f.clock.date
+        try f.advance(1)
         try f.stats.updateDailyGoal(2)
         _ = try f.stats.recordSolved(on: f.clock.date)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        let yesterday = f.clock.date
-        try f.advance(1)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        try f.stats.updateDailyGoal(1)
-        #expect(try f.stats.activity(for: f.clock.date)?.goalCompleted == true)
-        #expect(try f.stats.currentStreak(on: f.clock.date) == 2)
-        try f.stats.updateDailyGoal(3)
+        #expect(try f.stats.activity(for: previous)?.goalCompleted == false)
         #expect(try f.stats.activity(for: f.clock.date)?.goalCompleted == false)
-        #expect(try f.stats.activity(for: yesterday)?.goalCompleted == true)
-        #expect(try f.stats.currentStreak(on: f.clock.date) == 1)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        #expect(try f.stats.currentStreak(on: f.clock.date) == 2)
-    }
-
-    @Test("Пропущенный день обнуляет текущую серию до следующего занятия")
-    func expiredStreak() throws {
-        let f = try WorkflowFixture()
-        try f.stats.updateDailyGoal(1)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        try f.advance(1)
-        #expect(try f.stats.currentStreak(on: f.clock.date) == 1)
-        try f.advance(1)
         #expect(try f.stats.currentStreak(on: f.clock.date) == 0)
+        #expect(try f.stats.settings().totalSolved == 2)
     }
 
     @Test("Пустые SRS-дни засчитываются, пропущенное назначение прерывает серию")
@@ -401,8 +384,8 @@ extension StudyWorkflowTests {
         #expect(try target.stats.activity(for: march15)?.srsNewCardsIntroduced == 0)
     }
 
-    @Test("Сбой ответа откатывает дневной лимит, оценки, прогресс и SRS-статус")
-    func answerRollbackIncludesNewFields() throws {
+    @Test("Сбой ответа откатывает дневной лимит, оценки, прогресс и SRS-статус", arguments: [true, false])
+    func answerRollbackIncludesNewFields(correct: Bool) throws {
         let f = try WorkflowFixture()
         let card = try f.card("one")
         let session = try f.coordinator.currentSession(for: .srs)
@@ -412,8 +395,10 @@ extension StudyWorkflowTests {
         let store = SolveSessionStore(defaults: f.defaults, transaction: failing)
         let coordinator = SolveSessionCoordinator(store: store, cardRepository: cards, defaults: f.defaults)
         let recorder = AnswerRecordingService(transaction: failing, cards: cards, stats: stats, coordinator: coordinator)
-        #expect(throws: (any Error).self) { try recorder.record(card: card, session: session, correct: true, quality: .remembered) }
+        #expect(throws: (any Error).self) { try recorder.record(card: card, session: session, correct: correct, quality: correct ? .remembered : .forgot) }
         #expect(card.lastReviewDate == nil)
+        #expect(card.srsRecoveryPending == nil)
+        #expect(try f.stats.settings().srsMilestonesRaw == nil)
         #expect(try f.stats.activity(for: f.clock.date) == nil)
         #expect(try f.store.load(for: .srs) == session)
         #expect(!f.container.mainContext.hasChanges)
@@ -449,6 +434,145 @@ extension StudyWorkflowTests {
         #expect(try f.groups.userGroupsCount() == 0)
         #expect(try f.stats.settings().unlockedAchievementIDs.isEmpty)
         #expect(!f.container.mainContext.hasChanges)
+    }
+}
+
+extension StudyWorkflowTests {
+    @Test("Знакомство засчитывает любой первый SRS-ответ, завершение — всю очередь")
+    func storyFirstReviewAndClear() throws {
+        let f = try WorkflowFixture()
+        try f.card("one")
+        var session = try f.coordinator.currentSession(for: .srs)
+        try f.card("added during session")
+        session = try f.answer(session, quality: .forgot)
+        #expect(try f.stats.settings().srsMilestonesRaw == SRSMilestone.firstReview.mask)
+        session = try f.answer(session)
+        #expect(session.isCompletedWithoutMistakes)
+        #expect(try f.stats.settings().srsMilestonesRaw == SRSMilestone.firstReview.mask | SRSMilestone.firstClear.mask)
+        let awarded = f.achievements.evaluate().map(\.id)
+        #expect(awarded.contains(SRSMilestone.firstReview.rawValue))
+        #expect(awarded.contains(SRSMilestone.firstClear.rawValue))
+        #expect(f.achievements.evaluate().isEmpty)
+        let reopened = SwiftDataStatsRepository(context: ModelContext(f.container))
+        #expect(try reopened.settings().srsMilestonesRaw == 3)
+    }
+
+    @Test("Пустой SRS-день и свободная тренировка не выдают сюжетные награды")
+    func storyRequiresSRSAnswer() throws {
+        let f = try WorkflowFixture()
+        try f.stats.updateSRSStatus(on: f.clock.date, hasDueCards: false, nextReviewDate: nil)
+        #expect(try f.stats.settings().srsMilestonesRaw == nil)
+        let card = try f.card("one")
+        let session = try f.coordinator.currentSession(for: .system(.allCards))
+        _ = try f.recorder.record(card: card, session: session, correct: true)
+        #expect(try f.stats.settings().srsMilestonesRaw == nil)
+        #expect(f.achievements.evaluate().allSatisfy { $0.type != .srsMilestone })
+    }
+
+    @Test("Отсроченное воспоминание: фактические дни и правильный ответ", arguments: [6, 7, 29, 30], [true, false])
+    func storyRecallThresholds(days: Int, correct: Bool) throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        try f.advance(days)
+        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: correct ? .remembered : .forgot)
+        let raw = try f.stats.settings().srsMilestonesRaw ?? 0
+        #expect((raw & SRSMilestone.weekRecall.mask != 0) == (correct && days >= 7))
+        #expect((raw & SRSMilestone.monthRecall.mask != 0) == (correct && days >= 30))
+        #expect(card.lastReviewDate == f.clock.date)
+    }
+
+    @Test("Награда за неделю считает календарные дни через переход на летнее время")
+    func storyRecallAcrossDST() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "America/New_York"))
+        let start = try #require(StudyDay.date(for: "2026-03-07", calendar: calendar))
+        let f = try WorkflowFixture(date: start.addingTimeInterval(3600), calendar: calendar)
+        try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        try f.advance(7)
+        #expect(f.clock.date.timeIntervalSince(start.addingTimeInterval(3600)) < 7 * 86400)
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        #expect((try f.stats.settings().srsMilestonesRaw ?? 0) & SRSMilestone.weekRecall.mask != 0)
+    }
+
+    @Test("Приручение: три назначенных успеха после ошибки; новая ошибка сбрасывает счёт")
+    func storyRecovery() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        #expect(card.srsRecoveryPending == true)
+        let free = try f.coordinator.currentSession(for: .system(.allCards))
+        _ = try f.recorder.record(card: card, session: free, correct: true)
+        #expect(card.repetitions == 0)
+        for quality: SRSQuality in [.remembered, .forgot, .hard, .remembered, .easy] {
+            f.clock.date = try #require(card.nextReviewDate)
+            _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: quality)
+            let raw = try f.stats.settings().srsMilestonesRaw ?? 0
+            #expect((raw & SRSMilestone.recovery.mask != 0) == (card.repetitions == 3))
+        }
+        #expect(card.srsRecoveryPending == false)
+        #expect(f.achievements.evaluate().contains { $0.id == SRSMilestone.recovery.rawValue })
+    }
+
+    @Test("Старые ошибки из свободной тренировки не становятся SRS-приручением")
+    func storyDoesNotInventPastRecovery() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        try f.cards.recordAnswer(card, correct: false)
+        for _ in 0..<3 {
+            _ = try f.answer(f.coordinator.currentSession(for: .srs))
+            f.clock.date = try #require(card.nextReviewDate)
+        }
+        #expect(card.srsRecoveryPending == nil)
+        #expect((try f.stats.settings().srsMilestonesRaw ?? 0) & SRSMilestone.recovery.mask == 0)
+    }
+
+    @Test("Сбой выдачи награды не теряет сохранённое событие и позволяет повтор")
+    func storyAwardSaveRetry() throws {
+        let f = try WorkflowFixture()
+        try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        let failing = PersistenceTransaction(context: f.container.mainContext, save: { _ in throw CocoaError(.fileWriteUnknown) })
+        let stats = SwiftDataStatsRepository(context: f.container.mainContext, transaction: failing)
+        let awards = AchievementsService(statsRepository: stats, cardRepository: f.cards, groupRepository: f.groups)
+        #expect(awards.evaluate().isEmpty)
+        #expect(awards.recentlyUnlocked == nil)
+        #expect(try f.stats.settings().unlockedAchievementIDs.isEmpty)
+        #expect(try f.stats.settings().srsMilestonesRaw == 3)
+        #expect(f.achievements.evaluate().contains { $0.id == SRSMilestone.firstReview.rawValue })
+    }
+
+    @Test("Бэкап сохраняет сюжетные события и незавершённое приручение")
+    func storyBackupRoundTrip() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        let backup = try BackupService.createBackup(context: f.container.mainContext)
+        let target = try WorkflowFixture()
+        try BackupService.restoreBackup(from: backup, context: target.container.mainContext, transaction: target.tx)
+        #expect(try target.cards.fetch(id: card.id)?.srsRecoveryPending == true)
+        #expect(try target.stats.settings().srsMilestonesRaw == 3)
+
+        var json = try #require(JSONSerialization.jsonObject(with: backup) as? [String: Any])
+        var cards = try #require(json["cards"] as? [[String: Any]])
+        cards[0].removeValue(forKey: "srsRecoveryPending")
+        json["cards"] = cards
+        var settings = try #require(json["settings"] as? [String: Any])
+        settings.removeValue(forKey: "srsMilestonesRaw")
+        json["settings"] = settings
+        #expect(throws: (any Error).self) {
+            try BackupService.restoreBackup(from: JSONSerialization.data(withJSONObject: json), context: target.container.mainContext, transaction: target.tx)
+        }
+        json["schemaVersion"] = 2
+        try BackupService.restoreBackup(from: JSONSerialization.data(withJSONObject: json), context: target.container.mainContext, transaction: target.tx)
+        #expect(try target.cards.fetch(id: card.id)?.srsRecoveryPending == nil)
+        #expect(try target.stats.settings().srsMilestonesRaw == nil)
+        settings["srsMilestonesRaw"] = 32
+        json["settings"] = settings
+        #expect(throws: (any Error).self) {
+            try BackupService.restoreBackup(from: JSONSerialization.data(withJSONObject: json), context: target.container.mainContext, transaction: target.tx)
+        }
     }
 }
 
@@ -493,15 +617,15 @@ extension StudyWorkflowTests {
         #expect(vm.errorMessage == nil)
     }
 
-    @Test("Повторное достижение повышенной цели не выдаёт награду в тот же день")
+    @Test("Ни первая, ни повышенная архивная цель не выдают награды")
     func goalRewardIsOncePerDay() throws {
         let f = try WorkflowFixture()
         try f.stats.updateDailyGoal(1)
-        #expect(try f.stats.recordSolved(on: f.clock.date).goalJustCompleted)
+        #expect(try !f.stats.recordSolved(on: f.clock.date).goalJustCompleted)
         try f.stats.updateDailyGoal(2)
         #expect(try !f.stats.recordSolved(on: f.clock.date).goalJustCompleted)
-        #expect(try f.stats.activity(for: f.clock.date)?.goalCompleted == true)
-        #expect(try f.stats.currentStreak(on: f.clock.date) == 1)
+        #expect(try f.stats.activity(for: f.clock.date)?.goalCompleted == false)
+        #expect(try f.stats.currentStreak(on: f.clock.date) == 0)
     }
 
     @Test("Изменение текста после предпросмотра отменяет старый импорт")

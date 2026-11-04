@@ -41,7 +41,7 @@
 "tab_cards" = "Cards";
 "tab_solve" = "Solve";
 "tab_srs" = "Review";
-"tab_profile" = "Profile";
+"tab_profile" = "Progress";
 
 /* ============ THEMES ============ */
 "theme_beige" = "Beige";
@@ -243,7 +243,7 @@
 "card_added_success" = "Card added successfully!";
 
 /* ============ PROFILE ============ */
-"profile_title" = "Profile";
+"profile_title" = "Progress";
 "learner" = "Learner";
 "your_progress_today" = "Your progress today";
 "daily_goal" = "Daily goal: correct answers";
@@ -657,3 +657,113 @@
 "speech_device_preference" = "Your choice applies to this language across all groups and training modes on this device. Automatic mode prefers higher quality, prioritizing the requested regional variant.";
 "speech_missing_preference" = "Your previously selected voice is unavailable. Another voice in the same language is used temporarily.";
 "speech_download_help" = "Check and download additional voices in iOS Settings: Accessibility → Spoken Content (or Read & Speak) → Voices. Return to the app to refresh this list. iOS does not offer voices for every language. Only voices accessible to this app on this device are shown.";
+
+"progress_streak" = "Review streak";
+
+"progress_streak_hint" = "Days without missed reviews. Days with no assignments keep your streak.";
+
+"progress_languages" = "My languages";
+
+"progress_languages_empty" = "Add cards to see your progress by language.";
+
+"progress_cards_count" = "Cards: %d";
+
+"progress_filter_all" = "All cards";
+
+"progress_filter_new" = "New";
+
+"progress_filter_learning" = "Reviewing";
+
+"progress_filter_longTerm" = "Interval 30+ days";
+
+"progress_filter_attention" = "Needs attention";
+
+"progress_interval_hint" = "Categories show each card’s stage in SRS review.";
+
+"progress_week" = "Last 7 days";
+
+"progress_history" = "History";
+
+"progress_correct_count" = "Correct answers: %d";
+
+"progress_reviews_count" = "SRS reviews: %d";
+
+"progress_attention" = "Needs attention";
+
+"progress_attention_count" = "View cards: %d";
+
+"progress_attention_empty" = "No cards with consistently frequent mistakes yet.";
+
+"progress_attention_hint" = "Cards appear here after at least five attempts, with three or more errors making up at least 30% of answers. Both training modes count.";
+
+"progress_card_errors" = "Errors: %d out of %d answers";
+
+"progress_card_interval" = "Review interval: %d days";
+
+"progress_next_achievement" = "Next achievement";
+
+"progress_latest_achievement" = "Latest award";
+
+"progress_achievements_complete" = "All current learning achievements unlocked.";
+
+"progress_history_hint" = "Days with recorded correct answers or SRS reviews. A day without assignments may preserve your streak, but does not count as practice in this history.";
+
+"progress_history_empty" = "Your history will appear after your first answers.";
+
+"progress_practice_awards" = "Practice";
+
+"progress_other_awards" = "Collection";
+
+
+
+"achievement_srs_streak_3" = "Review rhythm · 3";
+
+"achievement_srs_streak_3_desc" = "3 days without missed assigned reviews. Days without assignments preserve the streak.";
+
+"achievement_srs_streak_7" = "Review rhythm · 7";
+
+"achievement_srs_streak_7_desc" = "7 days without missed assigned reviews. Days without assignments preserve the streak.";
+
+"achievement_srs_streak_14" = "Review rhythm · 14";
+
+"achievement_srs_streak_14_desc" = "14 days without missed assigned reviews. Days without assignments preserve the streak.";
+
+"achievement_srs_streak_30" = "Review rhythm · 30";
+
+"achievement_srs_streak_30_desc" = "30 days without missed assigned reviews. Days without assignments preserve the streak.";
+
+"achievement_srs_streak_100" = "Review rhythm · 100";
+
+"achievement_srs_streak_100_desc" = "100 days without missed assigned reviews. Days without assignments preserve the streak.";
+
+"achievement_srs_long_term_10" = "Long-term review · 10";
+
+"achievement_srs_long_term_10_desc" = "10 cards with an SRS interval of at least 30 days.";
+
+"achievement_srs_long_term_25" = "Long-term review · 25";
+
+"achievement_srs_long_term_25_desc" = "25 cards with an SRS interval of at least 30 days.";
+
+"achievement_srs_long_term_50" = "Long-term review · 50";
+
+"achievement_srs_long_term_50_desc" = "50 cards with an SRS interval of at least 30 days.";
+
+"achievement_srs_long_term_100" = "Long-term review · 100";
+
+"achievement_srs_long_term_100_desc" = "100 cards with an SRS interval of at least 30 days.";
+
+"progress_long_term_hint" = "Cards here have an SRS interval of at least 30 days. A long interval does not guarantee mastery.";
+
+"progress_awards_empty" = "No earned awards in this section yet.";
+
+// Story-based SRS achievements
+"achievement_srs_first_review" = "A first encounter";
+"achievement_srs_first_review_desc" = "Your first SRS answer. Any rating counts.";
+"achievement_srs_first_clear" = "All done for today";
+"achievement_srs_first_clear_desc" = "Finish all reviews assigned for the day after at least one SRS answer.";
+"achievement_srs_week_recall" = "A week later";
+"achievement_srs_week_recall_desc" = "Successfully review a card in SRS at least 7 days after its previous review.";
+"achievement_srs_month_recall" = "Long memory";
+"achievement_srs_month_recall_desc" = "Successfully review a card in SRS at least 30 days after its previous review.";
+"achievement_srs_recovery" = "Word tamed";
+"achievement_srs_recovery_desc" = "After an SRS mistake, successfully review the same card three times in a row on subsequent assigned reviews.";

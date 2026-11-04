@@ -1,216 +1,202 @@
-//
-//  ProfileView.swift
-//  Leksipo
-//
-//  Created by Егор Халиков on 23.09.2026.
-//
-
 import SwiftUI
 
 struct ProfileView: View {
     @Environment(AppContainer.self) private var container
-    @AppStorage("userName") private var userName: String = ""
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("userName") private var userName = ""
     @State private var viewModel: ProfileViewModel
-    
+
     init(container: AppContainer) {
-        _viewModel = State(initialValue: ProfileViewModel(
-            statsRepository: container.statsRepository,
-            cardRepository: container.cardRepository,
-            groupRepository: container.groupRepository,
-            achievementsService: container.achievementsService
-        ))
+        _viewModel = State(initialValue: ProfileViewModel(statsRepository: container.statsRepository,
+            cardRepository: container.cardRepository, groupRepository: container.groupRepository,
+            achievementsService: container.achievementsService))
     }
-    
+
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    avatarSection
-                    
-                    DailyProgressCard(
-                        stats: viewModel.stats,
-                        onTap: { viewModel.openGoalEditor() }
-                    )
-                    .padding(.horizontal)
-                    
-                    divider
-                    
-                    calendarSection
-                    
-                    divider
-                    
-                    statisticsSection
-                    
-                    divider
-                    
-                    achievementsSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    if let error = viewModel.errorMessage {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(error).foregroundStyle(.red)
+                            Button("retry_action".localized()) { viewModel.load() }
+                        }
+                    }
+                    if viewModel.hasLoaded {
+                        languagesSection
+                        weekSection
+                        attentionSection
+                        achievementsSection
+                    }
                 }
-                .padding(.top, 20)
-                .padding(.bottom, 120)
+                .padding()
+                .padding(.bottom, 110)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("profile_title".localized())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsView(container: container)
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.title3)
-                            .foregroundColor(.accent)
-                    }
+                    NavigationLink { SettingsView(container: container) } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("settings_title".localized())
                 }
             }
-            .refreshable { viewModel.load() }
-            .task { viewModel.load() }
             .onAppear { viewModel.load() }
-            .sheet(isPresented: $viewModel.showingGoalEditor) {
-                GoalEditorSheet(
-                    currentGoal: viewModel.stats.dailyGoal,
-                    onSave: { viewModel.saveGoal($0) }
-                )
-            }
-            .sheet(isPresented: $viewModel.showAllAchievements) {
-                AllAchievementsSheet(achievements: viewModel.achievements)
-            }
+            .onChange(of: scenePhase) { _, phase in if phase == .active { viewModel.load() } }
+            .refreshable { viewModel.load() }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in viewModel.load() }
+            .sheet(isPresented: $viewModel.showAllAchievements) { AllAchievementsSheet(achievements: viewModel.achievements) }
+            .sheet(isPresented: $viewModel.showHistory) { ProgressHistoryView(days: viewModel.history) }
         }
     }
-    
-    // MARK: - Sections
-    
-    private var avatarSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "person.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.accent)
-            Text(userName.isEmpty ? "learner".localized() : userName)
-                .font(.titleCustom)
-                .foregroundColor(.textPrimary)
-        }
-    }
-    
-    private var divider: some View {
-        Divider()
-            .background(Color.stroke)
-            .padding(.horizontal)
-    }
-    
-    private var calendarSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            expandableHeader(
-                title: "activity_calendar".localized(),
-                isExpanded: $viewModel.isCalendarExpanded
-            )
-            
-            if viewModel.isCalendarExpanded {
-                ActivityCalendarView(
-                    activityHistory: viewModel.activityHistory,
-                    isDateActive: viewModel.isDateActive
-                )
-                .padding(.horizontal)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
-    }
-    
-    private var statisticsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            expandableHeader(
-                title: "statistics".localized(),
-                isExpanded: $viewModel.isStatisticsExpanded
-            )
-            
-            if viewModel.isStatisticsExpanded {
-                LazyVGrid(
-                    columns: [GridItem(.flexible()), GridItem(.flexible())],
-                    spacing: 16
-                ) {
-                    StatCard(title: "total_cards".localized(),
-                             value: "\(viewModel.stats.totalCards)")
-                    StatCard(title: "groups_count".localized(),
-                             value: "\(viewModel.stats.userGroupsCount)")
-                    StatCard(title: "favorites".localized(),
-                             value: "\(viewModel.stats.favouritesCount)")
-                    StatCard(title: "total_solved".localized(),
-                             value: "\(viewModel.stats.totalSolved)")
-                    StatCard(title: "achievements_unlocked".localized(),
-                             value: "\(viewModel.unlockedAchievements.count)/\(viewModel.achievements.count)")
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Label(userName.isEmpty ? "learner".localized() : userName, systemImage: "person.crop.circle")
+                .font(.bodyCustom).foregroundStyle(Color.textSecondary)
+            HStack(spacing: 16) {
+                MascotView(pose: viewModel.srsStreak > 0 ? .success : .support).frame(width: 72, height: 80)
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("progress_streak".localized(), systemImage: "flame.fill")
+                        .font(.bodyCustom.weight(.semibold)).foregroundStyle(Color.accent)
+                    Text(viewModel.hasLoaded ? "\(viewModel.srsStreak)" : "—").font(.system(size: 36, weight: .bold, design: .rounded))
+                    Text("progress_streak_hint".localized()).font(.captionCustom).foregroundStyle(Color.textSecondary)
                 }
-                .padding(.horizontal)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                Spacer(minLength: 0)
             }
         }
+        .foregroundStyle(Color.textPrimary)
+        .padding()
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 22))
     }
-    
-    private var achievementsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            expandableHeader(
-                title: "achievements".localized(),
-                isExpanded: $viewModel.isAchievementsExpanded
-            )
-            
-            if viewModel.isAchievementsExpanded {
-                if viewModel.achievementsPreview.isEmpty {
-                    Text("no_achievements_yet".localized())
-                        .font(.bodyCustom)
-                        .foregroundColor(.textSecondary)
-                        .padding(.horizontal)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(viewModel.achievementsPreview) { status in
-                                AchievementBadge(
-                                    icon: status.achievement.icon,
-                                    title: status.achievement.title,
-                                    unlocked: status.isUnlocked
-                                )
-                                .padding(4)
+
+    private var languagesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("progress_languages")
+            if viewModel.languages.isEmpty {
+                Text("progress_languages_empty".localized()).foregroundStyle(Color.textSecondary)
+            }
+            ForEach(viewModel.languages) { item in
+                VStack(alignment: .leading, spacing: 12) {
+                    NavigationLink {
+                        ProgressCardListView(viewModel: viewModel, pair: item.pair, filter: .all)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.pair.displayName).font(.bodyCustom.weight(.semibold))
+                                Text(String(format: "progress_cards_count".localized(), item.cards.count)).font(.captionCustom)
                             }
+                            Spacer()
+                            Image(systemName: "chevron.right")
                         }
-                        .padding(.horizontal, 4)
                     }
-                    .padding(.horizontal)
+                    .buttonStyle(.plain)
+                    languageBar(item)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 16) { languageLinks(item) }
+                        VStack(alignment: .leading, spacing: 8) { languageLinks(item) }
+                    }
                 }
-                
-                Button {
-                    viewModel.showAllAchievements = true
-                } label: {
-                    Text("view_all_achievements".localized())
-                        .font(.captionCustom)
-                        .foregroundColor(.accent)
-                        .padding(.top, 8)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
+                .padding()
+                .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 18))
+            }
+            if !viewModel.languages.isEmpty {
+                Text("progress_interval_hint".localized()).font(.captionCustom).foregroundStyle(Color.textSecondary)
             }
         }
-        .padding(.bottom, 20)
+        .foregroundStyle(Color.textPrimary)
     }
-    
-    // MARK: - Helpers
-    
-    private func expandableHeader(
-        title: String,
-        isExpanded: Binding<Bool>
-    ) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                isExpanded.wrappedValue.toggle()
+
+    private func languageBar(_ item: ProfileViewModel.LanguageProgress) -> some View {
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                Color.stroke.frame(width: geometry.size.width * Double(item.newCount) / Double(max(1, item.cards.count)))
+                Color.accent.opacity(0.5).frame(width: geometry.size.width * Double(item.learningCount) / Double(max(1, item.cards.count)))
+                Color.accent.frame(width: geometry.size.width * Double(item.longTermCount) / Double(max(1, item.cards.count)))
             }
-        } label: {
-            HStack {
-                Text(title)
-                    .font(.titleCustom)
-                    .foregroundColor(.textPrimary)
-                Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.body)
-                    .foregroundColor(.textSecondary)
-                    .rotationEffect(.degrees(isExpanded.wrappedValue ? 180 : 0))
-            }
-            .padding(.horizontal)
         }
-        .buttonStyle(.plain)
+        .frame(height: 8).clipShape(Capsule()).accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func languageLinks(_ item: ProfileViewModel.LanguageProgress) -> some View {
+        ForEach([ProfileViewModel.CardFilter.new, .learning, .longTerm]) { filter in
+            NavigationLink { ProgressCardListView(viewModel: viewModel, pair: item.pair, filter: filter) } label: {
+                let count = filter == .new ? item.newCount : (filter == .learning ? item.learningCount : item.longTermCount)
+                Text("\(count) · \(filter.title)").font(.captionCustom).foregroundStyle(Color.textSecondary)
+            }
+        }
+    }
+
+    private var weekSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                sectionTitle("progress_week")
+                Spacer()
+                Button("progress_history".localized()) { viewModel.showHistory = true }.font(.captionCustom)
+            }
+            HStack(alignment: .bottom, spacing: 12) {
+                ForEach(viewModel.week) { day in
+                    VStack(spacing: 6) {
+                        Text("\(day.correctAnswers)").font(.captionCustom).foregroundStyle(Color.textSecondary)
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(day.correctAnswers > 0 ? Color.accent : Color.stroke.opacity(0.4))
+                            .frame(height: max(4, 72 * Double(day.correctAnswers) / Double(max(1, viewModel.week.map(\.correctAnswers).max() ?? 1))))
+                        Text(day.date.formatted(.dateTime.weekday(.narrow).locale(LanguageManager.shared.currentLanguage.locale)))
+                            .font(.captionCustom).foregroundStyle(Color.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(day.date.formatted(date: .abbreviated, time: .omitted)), \(String(format: "progress_correct_count".localized(), day.correctAnswers))")
+                }
+            }
+            Text(String(format: "progress_correct_count".localized(), viewModel.weeklyCorrectAnswers)).font(.bodyCustom.weight(.semibold))
+            Text(String(format: "progress_reviews_count".localized(), viewModel.weeklySRSReviews))
+                .font(.captionCustom).foregroundStyle(Color.textSecondary)
+        }
+        .padding().foregroundStyle(Color.textPrimary)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var attentionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("progress_attention")
+            if viewModel.attentionCount > 0 {
+                NavigationLink { ProgressCardListView(viewModel: viewModel, pair: nil, filter: .attention) } label: {
+                    HStack {
+                        Text(String(format: "progress_attention_count".localized(), viewModel.attentionCount))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.bodyCustom)
+                }
+            } else {
+                Text("progress_attention_empty".localized()).font(.bodyCustom).foregroundStyle(Color.textSecondary)
+            }
+        }
+        .padding().background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var achievementsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("progress_next_achievement")
+            if let next = viewModel.nextAchievement { AchievementCard(status: next) }
+            else { Text("progress_achievements_complete".localized()).foregroundStyle(Color.textSecondary) }
+            if let latest = viewModel.latestAchievement {
+                HStack(spacing: 8) {
+                    AchievementArtworkView(achievement: latest.achievement, size: 32)
+                    Text("\("progress_latest_achievement".localized()): \(latest.achievement.title)")
+                        .font(.captionCustom).foregroundStyle(Color.textSecondary)
+                }
+            }
+            Button("view_all_achievements".localized()) { viewModel.showAllAchievements = true }.font(.bodyCustom)
+        }
+    }
+
+    private func sectionTitle(_ key: String) -> some View {
+        Text(key.localized()).font(.titleCustom).foregroundStyle(Color.textPrimary)
     }
 }

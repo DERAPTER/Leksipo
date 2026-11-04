@@ -13,14 +13,7 @@ struct AchievementNotificationView: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            Image(systemName: achievement.icon)
-                .font(.system(size: 40))
-                .foregroundColor(.yellow)
-                .background(
-                    Circle()
-                        .fill(Color.yellow.opacity(0.2))
-                        .frame(width: 60, height: 60)
-                )
+            AchievementArtworkView(achievement: achievement, size: 64)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("achievement_unlocked".localized())

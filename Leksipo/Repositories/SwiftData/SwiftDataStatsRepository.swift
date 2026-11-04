@@ -44,23 +44,13 @@ final class SwiftDataStatsRepository: StatsRepository {
         }
     }
     
+    // Совместимость с прежними потребителями; не влияет на ответы, серии и награды.
     func updateDailyGoal(_ goal: Int) throws {
         return try transaction.perform {
             let clamped = max(1, min(100, goal))
             let s = try settings()
             transaction.track(s)
             s.dailyGoal = clamped
-            let date = now()
-            if !calendar.isDate(s.lastActiveDate, inSameDayAs: date) {
-                s.lastActiveDate = date
-                s.dailyGoalRewarded = false
-            }
-            if let today = try statForDate(date) {
-                transaction.track(today)
-                today.goalCompleted = today.solvedCount >= clamped
-                if today.goalCompleted { s.dailyGoalRewarded = true }
-            }
-            s.streak = try currentStreak(on: date)
 
         }
     }
@@ -74,6 +64,15 @@ final class SwiftDataStatsRepository: StatsRepository {
     }
 
     // MARK: - Recording
+
+    func recordSRSMilestones(_ milestones: Set<SRSMilestone>) throws {
+        guard !milestones.isEmpty else { return }
+        try transaction.perform {
+            let settings = try settings()
+            transaction.track(settings)
+            settings.srsMilestonesRaw = milestones.reduce(settings.srsMilestonesRaw ?? 0) { $0 | $1.mask }
+        }
+    }
     
     func recordSolved(on date: Date) throws -> StatsChange {
         return try transaction.perform {
@@ -82,7 +81,6 @@ final class SwiftDataStatsRepository: StatsRepository {
 
             if !calendar.isDate(s.lastActiveDate, inSameDayAs: date) {
                 s.lastActiveDate = date
-                s.dailyGoalRewarded = false
             }
 
             let todayStat = try statForDate(date) ?? {
@@ -97,18 +95,10 @@ final class SwiftDataStatsRepository: StatsRepository {
             todayStat.solvedCount += 1
             s.totalSolved += 1
 
-            let goalReached = !todayStat.goalCompleted && todayStat.solvedCount >= s.dailyGoal
-            let goalJustCompleted = goalReached && !s.dailyGoalRewarded
-            if goalReached {
-                todayStat.goalCompleted = true
-                if !s.dailyGoalRewarded {
-                    s.dailyGoalRewarded = true
-                }
-                s.streak = try currentStreak(on: date)
-            }
-
+            // Дневная цель и её серия больше не участвуют в новых ответах.
+            // Исторические поля остаются для чтения старых баз и бэкапов.
             return StatsChange(
-                goalJustCompleted: goalJustCompleted,
+                goalJustCompleted: false,
                 newStreak: s.streak,
                 newTotalSolved: s.totalSolved,
                 newTodaySolved: todayStat.solvedCount,
@@ -124,7 +114,6 @@ final class SwiftDataStatsRepository: StatsRepository {
 
             if !calendar.isDate(s.lastActiveDate, inSameDayAs: date) {
                 s.lastActiveDate = date
-                s.dailyGoalRewarded = false
             }
 
             let todayStat = try statForDate(date) ?? {

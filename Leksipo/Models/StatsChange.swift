@@ -8,7 +8,8 @@
 import Foundation
 
 /// Результат операции `StatsRepository.recordSolved(...)`.
-/// ViewModel использует это, чтобы обновить UI и проверить достижения.
+/// Содержит счётчики правильных ответов. Поля прежней цели оставлены
+/// для совместимости контракта; goalJustCompleted всегда false.
 struct StatsChange {
     let goalJustCompleted: Bool
     let newStreak: Int

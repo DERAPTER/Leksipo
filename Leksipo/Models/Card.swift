@@ -38,6 +38,10 @@ final class Card {
     
     /// Дата последнего ответа в SRS-режиме.
     var lastReviewDate: Date? = nil
+
+    /// Ошибка SRS, после которой ещё не было трёх успешных повторений подряд.
+    /// nil у старых карточек: исторические последовательности не восстанавливаем по счётчикам.
+    var srsRecoveryPending: Bool? = nil
     
     // MARK: - Relationships
     

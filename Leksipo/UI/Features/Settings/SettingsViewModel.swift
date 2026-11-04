@@ -120,7 +120,6 @@ final class SettingsViewModel {
                 try statsRepository.resetAllStats()
                 try solveSessionStore.clearAll()
 
-                try statsRepository.updateDailyGoal(20)
             }
             
             updateStorageSize()

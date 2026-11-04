@@ -7,10 +7,35 @@
 
 import Testing
 import Foundation
+import UIKit
 @testable import English_Words
 
 @Suite("AchievementsEvaluator — чистая логика проверки достижений")
 struct AchievementsEvaluatorTests {
+
+    @Test("Сюжетное событие открывает только свою награду", arguments: SRSMilestone.allCases)
+    func storyEventUnlocksMatchingAward(milestone: SRSMilestone) {
+        let unlocked = AchievementsEvaluator.newlyUnlocked(snapshot: snapshot(srsMilestonesRaw: milestone.mask), alreadyUnlocked: [])
+        #expect(unlocked.map(\.id) == [milestone.rawValue])
+        #expect(AchievementsEvaluator.newlyUnlocked(snapshot: snapshot(srsMilestonesRaw: milestone.mask), alreadyUnlocked: [milestone.rawValue]).isEmpty)
+    }
+
+    @Test("Все иллюстрации достижений доступны в собранном каталоге", arguments: AchievementArtwork.allCases)
+    @MainActor
+    func bundledArtwork(artwork: AchievementArtwork) {
+        #expect(UIImage(named: artwork.rawValue) != nil)
+    }
+
+    @Test("Действующие награды имеют разные изображения и доступные значки")
+    @MainActor
+    func distinctAwardVisuals() {
+        let active = AchievementsCatalog.all.filter { !$0.isRetired }
+        let visuals = active.map { $0.artwork.map { "asset:\($0.rawValue)" } ?? "symbol:\($0.icon)" }
+        #expect(Set(visuals).count == active.count)
+        for achievement in active where achievement.artwork == nil {
+            #expect(UIImage(systemName: achievement.icon) != nil)
+        }
+    }
     
     /// Удобный фабричный метод — не заполнять все поля каждый раз.
     private func snapshot(
@@ -19,7 +44,10 @@ struct AchievementsEvaluatorTests {
         streak: Int = 0,
         daysGoalCompleted: Int = 0,
         favouritesCount: Int = 0,
-        userGroupsCount: Int = 0
+        userGroupsCount: Int = 0,
+        srsStreak: Int = 0,
+        longTermCards: Int = 0,
+        srsMilestonesRaw: Int = 0
     ) -> AchievementsSnapshot {
         AchievementsSnapshot(
             cardsCreated: cardsCreated,
@@ -27,7 +55,7 @@ struct AchievementsEvaluatorTests {
             streak: streak,
             daysGoalCompleted: daysGoalCompleted,
             favouritesCount: favouritesCount,
-            userGroupsCount: userGroupsCount
+            userGroupsCount: userGroupsCount, srsStreak: srsStreak, longTermCards: longTermCards, srsMilestonesRaw: srsMilestonesRaw
         )
     }
     
@@ -81,23 +109,23 @@ struct AchievementsEvaluatorTests {
         #expect(ids == ["solved_10", "solved_50"])
     }
     
-    @Test("streak=7 → streak_3 и streak_7")
+    @Test("SRS-серия 7 → отдельные награды srs_streak_3 и srs_streak_7")
     func streakUnlocksMultiple() {
         let result = AchievementsEvaluator.newlyUnlocked(
-            snapshot: snapshot(streak: 7),
+            snapshot: snapshot(srsStreak: 7),
             alreadyUnlocked: []
         )
         let ids = Set(result.map(\.id))
-        #expect(ids == ["streak_3", "streak_7"])
+        #expect(ids == ["srs_streak_3", "srs_streak_7"])
     }
     
-    @Test("daysGoalCompleted=1 → goal_1")
+    @Test("Архивная дневная цель не открывает новых наград")
     func goalCompletedUnlocksFirst() {
         let result = AchievementsEvaluator.newlyUnlocked(
             snapshot: snapshot(daysGoalCompleted: 1),
             alreadyUnlocked: []
         )
-        #expect(result.map(\.id) == ["goal_1"])
+        #expect(result.isEmpty)
     }
     
     @Test("favouritesCount=5 → fav_1 и fav_5")
@@ -177,11 +205,11 @@ struct AchievementsEvaluatorTests {
                 streak: 99999,
                 daysGoalCompleted: 99999,
                 favouritesCount: 99999,
-                userGroupsCount: 99999
+                userGroupsCount: 99999, srsStreak: 99999, longTermCards: 99999, srsMilestonesRaw: SRSMilestone.validMask
             ),
             alreadyUnlocked: []
         )
-        #expect(result.count == AchievementsCatalog.all.count)
+        #expect(result.count == AchievementsCatalog.all.filter { !$0.isRetired }.count)
     }
     
     // MARK: - Мульти-категория
@@ -200,7 +228,7 @@ struct AchievementsEvaluatorTests {
             alreadyUnlocked: []
         )
         let ids = Set(result.map(\.id))
-        #expect(ids == ["cards_10", "solved_10", "streak_3", "goal_1", "fav_1", "group_1"])
+        #expect(ids == ["cards_10", "solved_10", "fav_1", "group_1"])
     }
     
     @Test("Порядок возврата соответствует каталогу (не проверяем hash, но проверяем стабильность)")

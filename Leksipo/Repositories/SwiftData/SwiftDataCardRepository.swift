@@ -299,8 +299,12 @@ final class SwiftDataCardRepository: CardRepository {
 
             if quality >= 3 {
                 card.correctCount += 1
+                if card.srsRecoveryPending == true && prediction.repetitions >= 3 {
+                    card.srsRecoveryPending = false
+                }
             } else {
                 card.wrongCount += 1
+                card.srsRecoveryPending = true
             }
 
 

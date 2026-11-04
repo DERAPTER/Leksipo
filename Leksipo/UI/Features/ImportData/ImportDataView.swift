@@ -183,6 +183,7 @@ struct ImportDataView: View {
                 
                     Spacer()
                 }
+                .padding(.top, 12)
             }
             .onAppear {
                 guard !didLoadLanguages else { return }

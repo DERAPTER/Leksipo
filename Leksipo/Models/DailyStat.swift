@@ -15,10 +15,11 @@ final class DailyStat {
     @Attribute(.unique) var dateKey: String
     var date: Date
     var solvedCount: Int
+    // Архивный результат прежней дневной цели; новые ответы его не изменяют.
     var goalCompleted: Bool
     
     /// Выполнена ли дневная SRS-очередь, включая день без назначений.
-    /// На достижения `goal_X` не влияет; в календаре показана отдельно от цели.
+    /// Поддерживает серию повторений, но сам по себе не означает фактическое занятие.
     var srsCleared: Bool = false
     var srsNewCardsIntroduced: Int = 0
     var srsReviewCount: Int = 0

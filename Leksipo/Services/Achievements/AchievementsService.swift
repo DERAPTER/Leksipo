@@ -32,15 +32,18 @@ final class AchievementsService {
     private let statsRepository: StatsRepository
     private let cardRepository: CardRepository
     private let groupRepository: GroupRepository
+    private let now: () -> Date
     
     init(
         statsRepository: StatsRepository,
         cardRepository: CardRepository,
-        groupRepository: GroupRepository
+        groupRepository: GroupRepository,
+        now: @escaping () -> Date = { .now }
     ) {
         self.statsRepository = statsRepository
         self.cardRepository = cardRepository
         self.groupRepository = groupRepository
+        self.now = now
     }
     
     // MARK: - Public
@@ -59,10 +62,10 @@ final class AchievementsService {
                 alreadyUnlocked: alreadyUnlocked
             )
             
-            try statsRepository.unlockAchievements(newlyUnlocked.map(\.id), on: .now)
+            try statsRepository.unlockAchievements(newlyUnlocked.map(\.id), on: now())
             
             // Обновляем published state
-            rebuildStatusList(settings: settings)
+            rebuildStatusList(settings: settings, snapshot: snapshot)
             
             pendingNotifications.append(contentsOf: newlyUnlocked)
             
@@ -76,8 +79,9 @@ final class AchievementsService {
     /// Загрузить состояние без проверки условий — для отображения в Profile.
     func refresh() {
         do {
+            let snapshot = try buildSnapshot()
             let settings = try statsRepository.settings()
-            rebuildStatusList(settings: settings)
+            rebuildStatusList(settings: settings, snapshot: snapshot)
         } catch {
             // no-op
         }
@@ -105,18 +109,22 @@ final class AchievementsService {
             streak: settings.streak,
             daysGoalCompleted: daysCompleted,
             favouritesCount: try cardRepository.favouritesCount(),
-            userGroupsCount: try groupRepository.userGroupsCount()
+            userGroupsCount: try groupRepository.userGroupsCount(),
+            srsStreak: try statsRepository.currentSRSStreak(on: now()),
+            longTermCards: try cardRepository.fetchAll().filter { !$0.isNewInSRS && $0.intervalDays >= 30 }.count,
+            srsMilestonesRaw: settings.srsMilestonesRaw ?? 0
         )
     }
     
-    private func rebuildStatusList(settings: UserSettings) {
+    private func rebuildStatusList(settings: UserSettings, snapshot: AchievementsSnapshot) {
         let unlockedSet = Set(settings.unlockedAchievementIDs)
         
         allAchievements = AchievementsCatalog.all.map { achievement in
             AchievementStatus(
                 achievement: achievement,
                 isUnlocked: unlockedSet.contains(achievement.id),
-                unlockedDate: settings.achievementUnlockDates[achievement.id]
+                unlockedDate: settings.achievementUnlockDates[achievement.id],
+                currentValue: AchievementsEvaluator.currentValue(for: achievement, snapshot: snapshot)
             )
         }
     }
@@ -129,6 +137,10 @@ struct AchievementStatus: Identifiable {
     let achievement: Achievement
     let isUnlocked: Bool
     let unlockedDate: Date?
+    var currentValue: Int = 0
+
+    var progressValue: Int { isUnlocked ? achievement.requiredValue : min(max(0, currentValue), achievement.requiredValue) }
+    var progress: Double { Double(progressValue) / Double(max(1, achievement.requiredValue)) }
     
     var id: String { achievement.id }
 }

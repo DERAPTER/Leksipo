@@ -43,6 +43,7 @@ enum BackupService {
                 nextReviewDate: card.nextReviewDate,
                 lastReviewDate: card.lastReviewDate,
                 groupIDs: card.groups.map(\.id),
+                srsRecoveryPending: card.srsRecoveryPending ?? false,
                 learningLanguageCode: card.languagePair.learning.code,
                 translationLanguageCode: card.languagePair.translation.code
             )
@@ -81,12 +82,13 @@ enum BackupService {
             srsStreak: settings.srsStreak,
             unlockedAchievementIDs: settings.unlockedAchievementIDs,
             achievementUnlockDates: settings.achievementUnlockDates,
+            srsMilestonesRaw: settings.srsMilestonesRaw ?? 0,
             learningLanguageCode: settings.languagePair.learning.code,
             translationLanguageCode: settings.languagePair.translation.code
         )
         
         let root = BackupRoot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             exportDate: .now,
             cards: backupCards,
@@ -150,6 +152,7 @@ enum BackupService {
                 card.repetitions = c.repetitions
                 card.nextReviewDate = c.nextReviewDate
                 card.lastReviewDate = c.lastReviewDate
+                card.srsRecoveryPending = c.srsRecoveryPending
                 card.groups = try c.groupIDs.map {
                     guard let group = groupMap[$0] else { throw PersistenceError.invalidBackup }
                     return group
@@ -184,6 +187,7 @@ enum BackupService {
             settings.lastActiveDate = backup.settings.lastActiveDate
             settings.dailyGoalRewarded = backup.settings.dailyGoalRewarded
             settings.srsStreak = backup.settings.srsStreak
+            settings.srsMilestonesRaw = backup.settings.srsMilestonesRaw
             settings.unlockedAchievementIDs = backup.settings.unlockedAchievementIDs
             settings.achievementUnlockDates = backup.settings.achievementUnlockDates
             // Сброс очередей и маркер миграции фиксируются вместе с заменой базы.
@@ -198,7 +202,7 @@ enum BackupService {
         let backup: BackupRoot
         do { backup = try decoder.decode(BackupRoot.self, from: data) }
         catch { throw PersistenceError.invalidBackup }
-        guard backup.schemaVersion == 2 || backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
+        guard backup.schemaVersion == 3 || backup.schemaVersion == 2 || backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
             throw PersistenceError.unsupportedBackup
         }
         func require(_ condition: Bool) throws {
@@ -216,7 +220,7 @@ enum BackupService {
         try require(Set(backup.stats.map(\.dateKey)).count == backup.stats.count)
         func pair(_ learning: String?, _ translation: String?) throws -> StudyLanguagePair {
             if learning == nil && translation == nil {
-                guard backup.schemaVersion != 2 else { throw PersistenceError.invalidBackup }
+                guard (backup.schemaVersion ?? 0) < 2 else { throw PersistenceError.invalidBackup }
                 return .legacy
             }
             guard let learning, let translation, let first = StudyLanguage(code: learning),
@@ -229,6 +233,7 @@ enum BackupService {
             try require(text(g.name) && count(g.orderIndex) && date(g.createdAt))
         }
         for c in backup.cards {
+            if backup.schemaVersion == 3 { try require(c.srsRecoveryPending != nil) }
             let languages = try pair(c.learningLanguageCode, c.translationLanguageCode)
             try require(c.groupIDs.allSatisfy { groupPairs[$0] == languages })
             try require(text(c.originWord) && text(c.translatedWord))
@@ -264,6 +269,9 @@ enum BackupService {
             try require(date(s.date) && abs(keyDate.timeIntervalSince(s.date)) <= 86_400 && count(s.solvedCount))
         }
         let s = backup.settings
+        if backup.schemaVersion == 3 { try require(s.srsMilestonesRaw != nil) }
+        let milestones = s.srsMilestonesRaw ?? 0
+        try require(milestones >= 0 && milestones & ~SRSMilestone.validMask == 0)
         _ = try pair(s.learningLanguageCode, s.translationLanguageCode)
         try require((1...100).contains(s.dailyGoal) && count(s.streak) && count(s.srsStreak) && count(s.totalSolved) && date(s.lastActiveDate))
         let unlocked = Set(s.unlockedAchievementIDs)

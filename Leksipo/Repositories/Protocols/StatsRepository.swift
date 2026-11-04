@@ -13,6 +13,8 @@ protocol StatsRepository {
     func settings() throws -> UserSettings
     func updateStudyLanguages(_ pair: StudyLanguagePair) throws
     func unlockAchievements(_ ids: [String], on date: Date) throws
+    func recordSRSMilestones(_ milestones: Set<SRSMilestone>) throws
+    /// Обновляет только архивное значение; в пользовательских сценариях не используется.
     func updateDailyGoal(_ goal: Int) throws
     
     // Recording

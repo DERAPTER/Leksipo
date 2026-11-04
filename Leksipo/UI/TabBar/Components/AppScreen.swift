@@ -27,7 +27,7 @@ enum AppScreen: CaseIterable {
         case .cardsGroups: return "square.stack.3d.up.fill"
         case .solveCards:  return "play.circle.fill"
         case .srsReview:   return "clock.arrow.circlepath"
-        case .profile:     return "person.crop.circle.fill"
+        case .profile:     return "chart.bar.fill"
         }
     }
     

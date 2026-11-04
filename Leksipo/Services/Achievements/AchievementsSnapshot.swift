@@ -16,4 +16,7 @@ struct AchievementsSnapshot {
     let daysGoalCompleted: Int
     let favouritesCount: Int
     let userGroupsCount: Int
+    var srsStreak: Int = 0
+    var longTermCards: Int = 0
+    var srsMilestonesRaw: Int = 0
 }

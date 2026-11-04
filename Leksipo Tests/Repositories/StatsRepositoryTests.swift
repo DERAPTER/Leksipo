@@ -110,83 +110,35 @@ struct StatsRepositoryTests {
         #expect(change.newTotalSolved == 3)
     }
     
-    // MARK: - recordSolved: goalJustCompleted
-    
-    @Test("recordSolved: goalJustCompleted = true ровно один раз — в момент достижения цели")
-    func goalJustCompletedFiresOnce() throws {
-        try repos.stats.updateDailyGoal(3)
-        let day = date(2026, 3, 15)
-        
-        let c1 = try repos.stats.recordSolved(on: day)
-        #expect(c1.goalJustCompleted == false)
-        
-        let c2 = try repos.stats.recordSolved(on: day)
-        #expect(c2.goalJustCompleted == false)
-        
-        let c3 = try repos.stats.recordSolved(on: day)
-        #expect(c3.goalJustCompleted == true)
-        
-        // Дальше — уже false, потому что goalCompleted установлен
-        let c4 = try repos.stats.recordSolved(on: day)
-        #expect(c4.goalJustCompleted == false)
-    }
-    
-    @Test("recordSolved: dailyGoalRewarded сбрасывается при смене дня")
-    func dailyGoalRewardedResetsOnNewDay() throws {
+    @Test("Новые правильные ответы не выполняют прежнюю дневную цель и не начинают вторую серию")
+    func answersDoNotAwardLegacyGoal() throws {
         try repos.stats.updateDailyGoal(1)
-        
-        // День 1 — выполняем цель
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 15))
-        #expect(try repos.stats.settings().dailyGoalRewarded == true)
-        
-        // День 2 — смена дня сбрасывает флаг
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 16))
-        // После первого вызова дня флаг сбросился и потом сразу выставился обратно (goal=1)
-        // Проверяем на дне с goal=5:
-        try repos.stats.updateDailyGoal(5)
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 17))
-        #expect(try repos.stats.settings().dailyGoalRewarded == false)
+        for day in 15...17 {
+            let change = try repos.stats.recordSolved(on: date(2026, 3, day))
+            #expect(!change.goalJustCompleted && change.newStreak == 0)
+            #expect(try repos.stats.activity(for: date(2026, 3, day))?.goalCompleted == false)
+        }
+        #expect(try repos.stats.totalDaysGoalCompleted() == 0)
+        #expect(try repos.stats.settings().totalSolved == 3)
     }
-    
-    @Test("recordSolved: newStreak в StatsChange отражает актуальный streak")
-    func recordSolvedReturnsStreak() throws {
-        try repos.stats.updateDailyGoal(1)
-        let change = try repos.stats.recordSolved(on: date(2026, 3, 15))
-        #expect(change.newStreak == 1)
+
+    @Test("Архивные серия, награда дня и выполненные цели сохраняются при новых ответах")
+    func preservesArchivedGoalData() throws {
+        let settings = try repos.stats.settings()
+        settings.streak = 8
+        settings.dailyGoalRewarded = true
+        settings.unlock("goal_1", on: date(2026, 3, 14))
+        try repos.container.mainContext.save()
+        try insertStat(date: date(2026, 3, 14), solvedCount: 20, goalCompleted: true)
+        for day in [15, 17] {
+            let change = try repos.stats.recordSolved(on: date(2026, 3, day))
+            #expect(!change.goalJustCompleted && change.newStreak == 8)
+        }
+        #expect(settings.streak == 8 && settings.dailyGoalRewarded)
+        #expect(settings.isUnlocked("goal_1"))
+        #expect(try repos.stats.totalDaysGoalCompleted() == 1)
     }
-    
-    // MARK: - recordSolved: streak
-    
-    @Test("streak = 1 после первого выполнения цели")
-    func streakFirstCompletion() throws {
-        try repos.stats.updateDailyGoal(1)
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 15))
-        #expect(try repos.stats.settings().streak == 1)
-    }
-    
-    @Test("streak увеличивается при выполнении цели два дня подряд")
-    func streakTwoConsecutiveDays() throws {
-        try repos.stats.updateDailyGoal(1)
-        
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 15))
-        #expect(try repos.stats.settings().streak == 1)
-        
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 16))
-        #expect(try repos.stats.settings().streak == 2)
-    }
-    
-    @Test("streak сбрасывается в 1 при разрыве серии")
-    func streakResetsOnGap() throws {
-        try repos.stats.updateDailyGoal(1)
-        
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 15))
-        #expect(try repos.stats.settings().streak == 1)
-        
-        // Пропускаем 16-е, выполняем 17-е
-        _ = try repos.stats.recordSolved(on: date(2026, 3, 17))
-        #expect(try repos.stats.settings().streak == 1)
-    }
-    
+
     // MARK: - activity(for:)
     
     @Test("activity(for:) → nil, если записи нет")
@@ -328,7 +280,7 @@ struct StatsRepositoryTests {
     
     // MARK: - Сквозной сценарий: несколько дней подряд
     
-    @Test("Полный сценарий: 3 дня подряд с выполненной целью → streak = 3, totalDaysGoalCompleted = 3")
+    @Test("Ответы за три дня накапливаются без прежней дневной цели")
     func multiDayScenario() throws {
         try repos.stats.updateDailyGoal(2)
         
@@ -338,8 +290,8 @@ struct StatsRepositoryTests {
             _ = try repos.stats.recordSolved(on: d) // достигаем цели
         }
         
-        #expect(try repos.stats.settings().streak == 3)
-        #expect(try repos.stats.totalDaysGoalCompleted() == 3)
+        #expect(try repos.stats.settings().streak == 0)
+        #expect(try repos.stats.totalDaysGoalCompleted() == 0)
         #expect(try repos.stats.settings().totalSolved == 6)
     }
 }

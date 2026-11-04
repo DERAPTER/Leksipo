@@ -8,7 +8,7 @@
 import Foundation
 
 struct BackupRoot: Codable {
-    // nil — экспорт 2.9.0; 1 — первый версионированный формат; 2 — языковые пары.
+    // nil — экспорт 2.9.0; 1 — первый формат; 2 — языковые пары; 3 — события SRS.
     var schemaVersion: Int? = 1
     let version: String
     let exportDate: Date
@@ -34,6 +34,7 @@ struct BackupCard: Codable {
     let nextReviewDate: Date?
     let lastReviewDate: Date?
     let groupIDs: [UUID] // Связи с группами
+    var srsRecoveryPending: Bool? = nil
     var learningLanguageCode: String? = nil
     var translationLanguageCode: String? = nil
 }
@@ -67,6 +68,7 @@ struct BackupUserSettings: Codable {
     let srsStreak: Int
     let unlockedAchievementIDs: [String]
     let achievementUnlockDates: [String: Date]
+    var srsMilestonesRaw: Int? = nil
     var learningLanguageCode: String? = nil
     var translationLanguageCode: String? = nil
 }
