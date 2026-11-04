@@ -21,7 +21,6 @@ struct SRSWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SRSWidgetProvider()) { entry in
             SRSWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName(Text(SRSWidgetText.string("widget_display_name")))
         .description(Text(SRSWidgetText.string("widget_description")))

@@ -10,6 +10,7 @@ import SwiftUI
 
 struct SRSWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var renderingMode
 
     let entry: SRSWidgetEntry
 
@@ -28,7 +29,16 @@ struct SRSWidgetEntryView: View {
     }
 
     private var stateColor: Color {
-        hasDue ? colors.accent : .orange
+        guard renderingMode == .fullColor else { return .primary }
+        return hasDue ? colors.accent : .orange
+    }
+
+    private var primaryTextColor: Color {
+        renderingMode == .fullColor ? colors.textPrimary : .primary
+    }
+
+    private var secondaryTextColor: Color {
+        renderingMode == .fullColor ? colors.textSecondary : .primary.opacity(0.8)
     }
 
     private var iconName: String {
@@ -40,23 +50,23 @@ struct SRSWidgetEntryView: View {
     }
 
     var body: some View {
-        ZStack {
-            colors.background.ignoresSafeArea()
-            Group {
-                if case .current = entry.state {
+        Group {
+            if case .current = entry.state {
                 switch family {
                 case .systemSmall:
                     smallView
                 default:
                     mediumView
                 }
-                } else {
-                    unavailableView
-                }
+            } else {
+                unavailableView
             }
-            .padding(16)
-            .widgetURL(URL(string: "leksipo://srs"))
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Только фон контейнера система может убрать при выборе Clear/Tinted.
+        .containerBackground(for: .widget) { colors.background }
+        .widgetURL(URL(string: "leksipo://srs"))
     }
 
     private func localized(_ key: String) -> String {
@@ -67,13 +77,14 @@ struct SRSWidgetEntryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: statusIcon)
                 .font(.title2)
-                .foregroundStyle(colors.accent)
+                .foregroundStyle(renderingMode == .fullColor ? colors.accent : .primary)
+                .widgetAccentable()
             Text(localized(statusTitle))
                 .font(.headline)
-                .foregroundStyle(colors.textPrimary)
+                .foregroundStyle(primaryTextColor)
             Text(localized("widget_open_to_refresh"))
                 .font(.caption)
-                .foregroundStyle(colors.textSecondary)
+                .foregroundStyle(secondaryTextColor)
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,6 +122,7 @@ struct SRSWidgetEntryView: View {
                     Image(systemName: iconName)
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(stateColor)
+                        .widgetAccentable()
                 }
 
                 Spacer(minLength: 4)
@@ -130,13 +142,13 @@ struct SRSWidgetEntryView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(localized(hasDue ? "widget_cards_due" : "widget_day_streak"))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(colors.textPrimary)
+                        .foregroundStyle(primaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
                     Text(localized(hasDue ? "widget_lets_review" : "widget_keep_it_up"))
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(colors.textSecondary)
+                        .foregroundStyle(secondaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -148,6 +160,7 @@ struct SRSWidgetEntryView: View {
                     .foregroundStyle(stateColor)
                     .frame(width: 28, height: 28)
                     .background(stateColor.opacity(0.15), in: Circle())
+                    .widgetAccentable()
             }
         }
     }
@@ -159,7 +172,7 @@ struct SRSWidgetEntryView: View {
             Image(decorative: hasDue ? "dachshund-idle" : "dachshund-rest")
                 .renderingMode(.original)
                 .resizable()
-                .widgetAccentedRenderingMode(.fullColor)
+                .widgetAccentedRenderingMode(.accentedDesaturated)
                 .scaledToFit()
                 .frame(width: 80, height: 100)
                 .accessibilityHidden(true)
@@ -170,13 +183,13 @@ struct SRSWidgetEntryView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(localized(hasDue ? "widget_time_to_review" : "widget_review_streak"))
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(colors.textPrimary)
+                        .foregroundStyle(primaryTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
 
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(colors.textSecondary)
+                        .foregroundStyle(secondaryTextColor)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -191,6 +204,7 @@ struct SRSWidgetEntryView: View {
                 .foregroundStyle(stateColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .widgetAccentable()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
