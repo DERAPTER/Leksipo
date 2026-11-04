@@ -277,6 +277,9 @@ final class SolveViewModel {
             allCards = try cardRepository.fetchFavourites()
         case .user(let id):
             allCards = try cardRepository.fetch(inGroup: id)
+        case .practice(let ids):
+            let selected = Set(ids)
+            allCards = try cardRepository.fetchAll().filter { selected.contains($0.id) }
         case .srs:
             // Fallback: SRS вынесен в SRSViewModel, но на всякий случай
             // не падаем, если кто-то передаст .srs.

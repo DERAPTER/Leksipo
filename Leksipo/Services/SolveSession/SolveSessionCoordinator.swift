@@ -168,6 +168,9 @@ final class SolveSessionCoordinator {
             return try cardRepository.fetchFavourites().map(\.id)
         case .user(let id):
             return try cardRepository.fetch(inGroup: id).map(\.id)
+        case .practice(let ids):
+            let existing = Set(try cardRepository.fetchAll().map(\.id))
+            return ids.filter { existing.contains($0) }
         case .srs:
             return try cardRepository.fetchDueToday(on: now(), newCardsLimit: newCardsLimit).map(\.id)
         }

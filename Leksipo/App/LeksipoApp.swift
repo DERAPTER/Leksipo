@@ -14,7 +14,10 @@ struct LeksipoApp: App {
     
     @Environment(\.scenePhase) private var scenePhase
     
-    @State private var startup = AppStartup()
+    @State private var startup = AppStartup(loadContainer: {
+        try await AppStartup.makeContainerInBackground()
+    })
+    @State private var hasFinishedGreeting = false
     @State private var router = AppRouter()
     @State private var showRecoveryImporter = false
     @State private var recoveryData: Data?
@@ -24,7 +27,7 @@ struct LeksipoApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if let container = startup.app, let model = startup.container {
+                if hasFinishedGreeting, let container = startup.app, let model = startup.container {
                     RootView()
                         .environment(container)
                         .modelContainer(model)
@@ -49,15 +52,20 @@ struct LeksipoApp: App {
             }
             .task {
                 guard ProcessInfo.processInfo.environment["LEKSIPO_TEST_HOST"] != "1" else { return }
-                // Даём приветствию отобразиться и завершить анимацию до открытия базы.
+                // Минимальное время приветствия отсчитывается одновременно с загрузкой,
+                // поэтому медленное открытие базы не добавляет ещё одну паузу после него.
+                let clock = ContinuousClock()
+                let greetingDeadline = clock.now.advanced(by: .milliseconds(1200))
+                await startup.startAsync()
+                guard !Task.isCancelled else { return }
                 do {
-                    try await Task.sleep(for: .milliseconds(1200))
+                    try await clock.sleep(until: greetingDeadline)
                 } catch {
                     return
                 }
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeInOut(duration: 0.5)) {
-                    startup.start()
+                    hasFinishedGreeting = true
                 }
                 startup.app?.srsIntegration?.refresh(force: true)
             }

@@ -767,3 +767,7 @@
 "achievement_srs_month_recall_desc" = "Successfully review a card in SRS at least 30 days after its previous review.";
 "achievement_srs_recovery" = "Word tamed";
 "achievement_srs_recovery_desc" = "After an SRS mistake, successfully review the same card three times in a row on subsequent assigned reviews.";
+
+// Difficult-card practice
+"progress_practice_all" = "Practice all";
+"progress_practice_hint" = "Classic free practice. Your SRS review schedule stays the same.";

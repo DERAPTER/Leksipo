@@ -33,6 +33,13 @@ final class SolveSessionStore {
 
     func save(_ session: SolveSession, for key: SolveGroupKey) throws {
         var dict = try allSessions()
+        if case .practice = key {
+            // Храним одну подборку практики, сохраняя очереди групп и SRS.
+            dict = dict.filter { entry in
+                guard let savedKey = SolveGroupKey(stringValue: entry.key), case .practice = savedKey else { return true }
+                return savedKey == key
+            }
+        }
         dict[key.stringValue] = session
         try persist(dict)
     }

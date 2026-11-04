@@ -94,11 +94,15 @@ struct SolveView: View {
     private var content: some View {
         switch viewModel.state {
         case .empty:
-            EmptyGroupView(
-                groupTitle: viewModel.groupTitle,
-                onAddFirstCard: { showAddFirstCardSheet = true },
-                onDismiss: { dismiss() }
-            )
+            if case .practice = viewModel.key {
+                ContentUnavailableView("no_cards_found".localized(), systemImage: "rectangle.stack")
+            } else {
+                EmptyGroupView(
+                    groupTitle: viewModel.groupTitle,
+                    onAddFirstCard: { showAddFirstCardSheet = true },
+                    onDismiss: { dismiss() }
+                )
+            }
             
         case .completedWithoutMistakes, .completedWithMistakes:
             ResultView(

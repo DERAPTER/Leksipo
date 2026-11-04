@@ -8,6 +8,22 @@ import Testing
 struct ProfileProgressTests {
     private func fixture() throws -> ProgressFixture { try ProgressFixture() }
 
+    @Test("Список трудных карточек включает все слова, а не первые пять")
+    func allAttentionCards() throws {
+        let f = try fixture()
+        var expected = Set<UUID>()
+        let cards = try (0..<9).map { try f.card("hard\($0)") }
+        _ = try f.card("ordinary")
+        for card in cards {
+            card.wrongCount = 3
+            card.correctCount = 2
+            expected.insert(card.id)
+        }
+        try f.repos.container.mainContext.save()
+        f.vm.load()
+        #expect(Set(f.vm.cards(for: nil, filter: .attention).map(\.id)) == expected)
+    }
+
     @Test("Категории по языкам не пересекаются, граница долгосрочного интервала — 30 дней")
     func languageStagesAndSharedCards() throws {
         let f = try fixture()

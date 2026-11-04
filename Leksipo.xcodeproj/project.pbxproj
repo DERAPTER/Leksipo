@@ -25,7 +25,7 @@
 			containerPortal = 1996A7D12F7E56E800413906 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 1996A7D82F7E56E800413906;
-			remoteInfo = "Leksipo";
+			remoteInfo = Leksipo;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -48,7 +48,7 @@
 		1913E48A30792844004DB8AD /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		1913E48C30792844004DB8AD /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		1913E4A030792877004DB8AD /* Leksipo WidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Leksipo WidgetsExtension.entitlements"; sourceTree = "<group>"; };
-		1996A7D92F7E56E800413906 /* Leksipo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Leksipo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1996A7D92F7E56E800413906 /* Leksipo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Leksipo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		19DEC4663073ED0A00D1BFD5 /* Leksipo Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Leksipo Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,7 +93,7 @@
 				A10000000000000000000001 /* Exceptions for "Leksipo" folder in "Leksipo" target */,
 				1913E4A7307928F7004DB8AD /* Exceptions for "Leksipo" folder in "Leksipo WidgetsExtension" target */,
 			);
-			path = "Leksipo";
+			path = Leksipo;
 			sourceTree = "<group>";
 		};
 		19DEC4673073ED0A00D1BFD5 /* Leksipo Tests */ = {
@@ -203,10 +203,10 @@
 			fileSystemSynchronizedGroups = (
 				1996A7DB2F7E56E800413906 /* Leksipo */,
 			);
-			name = "Leksipo";
+			name = Leksipo;
 			packageProductDependencies = (
 			);
-			productName = "Leksipo";
+			productName = Leksipo;
 			productReference = 1996A7D92F7E56E800413906 /* Leksipo.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -531,13 +531,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Leksipo/Leksipo.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Leksipo/Leksipo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 259HY3JCU4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Leksipo/Info.plist";
+				INFOPLIST_FILE = Leksipo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Leksipo;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -565,13 +565,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Leksipo/Leksipo.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Leksipo/Leksipo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 259HY3JCU4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Leksipo/Info.plist";
+				INFOPLIST_FILE = Leksipo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Leksipo;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

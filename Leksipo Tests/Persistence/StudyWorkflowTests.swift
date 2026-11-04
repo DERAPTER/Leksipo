@@ -660,3 +660,109 @@ extension StudyWorkflowTests {
         #expect(vm.srsStreak == 3)
     }
 }
+
+extension StudyWorkflowTests {
+    @Test("Практика всех трудных слов использует классические ответы и сохраняет расписание SRS")
+    func attentionPracticePreservesSRS() async throws {
+        let f = try WorkflowFixture()
+        let cards = try (0..<8).map { try f.card("hard\($0)") }
+        let unrelated = try f.card("ordinary")
+        let last = f.clock.date.addingTimeInterval(-14 * 86400)
+        let next = f.clock.date.addingTimeInterval(14 * 86400)
+        for card in cards {
+            card.wrongCount = 3
+            card.correctCount = 2
+            card.lastReviewDate = last
+            card.nextReviewDate = next
+            card.intervalDays = 28
+            card.repetitions = 3
+            card.easeFactor = 2.4
+            card.srsRecoveryPending = true
+        }
+        try f.container.mainContext.save()
+        let groupSession = try f.coordinator.currentSession(for: .system(.allCards))
+        let srsSession = try f.coordinator.currentSession(for: .srs)
+        #expect(srsSession.currentCardID == unrelated.id)
+        let key = SolveGroupKey.practice(cards.map(\.id))
+        let vm = SolveViewModel(key: key, title: "Practice", cardRepository: f.cards, statsRepository: f.stats,
+                               sessionCoordinator: f.coordinator, achievementsService: f.achievements, answerRecorder: f.recorder)
+        vm.onAppear()
+        #expect(vm.totalProgress == 8)
+        for index in cards.indices {
+            #expect(vm.currentCard?.id != unrelated.id)
+            await vm.commitSwipe(index.isMultiple(of: 2) ? .flyRight : .flyLeft)
+            #expect(vm.errorMessage == nil)
+        }
+        #expect(vm.state == .completedWithMistakes)
+        #expect(vm.successCount == 4 && vm.failCount == 4)
+        for card in cards {
+            #expect(card.lastReviewDate == last && card.nextReviewDate == next)
+            #expect(card.intervalDays == 28 && card.repetitions == 3 && card.easeFactor == 2.4)
+            #expect(card.srsRecoveryPending == true)
+        }
+        #expect(try f.stats.settings().srsMilestonesRaw == nil)
+        #expect(try f.stats.activity(for: f.clock.date)?.srsReviewCount == 0)
+        #expect(try f.store.load(for: .srs) == srsSession)
+        #expect(try f.store.load(for: .system(.allCards)) == groupSession)
+        vm.restartMistakesFromResult()
+        #expect(vm.totalProgress == 4)
+        vm.restartFromResult()
+        #expect(vm.totalProgress == 8)
+    }
+
+    @Test("Подборка фиксируется при запуске; удалённые слова исключаются при возобновлении")
+    func practiceKeepsSelection() throws {
+        let f = try WorkflowFixture()
+        let cards = try (0..<8).map { try f.card("selected\($0)") }
+        let key = SolveGroupKey.practice(cards.map(\.id))
+        var session = try f.coordinator.currentSession(for: key)
+        let firstID = try #require(session.currentCardID)
+        let first = try #require(try f.cards.fetch(id: firstID))
+        session = try f.recorder.record(card: first, session: session, correct: true)
+        let added = try f.card("added later")
+        let deletedID = try #require(session.currentCardID)
+        let deleted = try #require(try f.cards.fetch(id: deletedID))
+        try f.cards.delete(deleted)
+        let resumed = try f.coordinator.currentSession(for: key)
+        #expect(resumed.totalCount == 7)
+        #expect(resumed.successIDs == [first.id])
+        #expect(!resumed.unsolvedIDs.contains(added.id))
+        let restarted = try f.coordinator.restartAll(for: key)
+        #expect(restarted.totalCount == 7)
+        #expect(!restarted.unsolvedIDs.contains(added.id))
+    }
+
+    @Test("Новая подборка заменяет прежнюю практику, сохраняя очереди групп и SRS")
+    func practiceStorageIsIsolated() throws {
+        let f = try WorkflowFixture()
+        let a = try f.card("a"), b = try f.card("b")
+        let group = try f.coordinator.currentSession(for: .system(.allCards))
+        let srs = try f.coordinator.currentSession(for: .srs)
+        let old = SolveGroupKey.practice([a.id])
+        _ = try f.coordinator.currentSession(for: old)
+        let key = SolveGroupKey.practice([a.id, b.id])
+        let fresh = try f.coordinator.currentSession(for: key)
+        #expect(try f.store.load(for: old) == nil)
+        #expect(try f.store.load(for: key) == fresh)
+        #expect(try f.store.load(for: .system(.allCards)) == group)
+        #expect(try f.store.load(for: .srs) == srs)
+        let reopened = SolveSessionStore(defaults: f.defaults, transaction: f.tx)
+        #expect(try reopened.load(for: key) == fresh)
+    }
+
+    @Test("Ошибка сохранения новой практики не удаляет предыдущую подборку")
+    func practiceReplacementRollback() throws {
+        let f = try WorkflowFixture()
+        let a = try f.card("a"), b = try f.card("b")
+        let key = SolveGroupKey.practice([a.id])
+        let old = try f.coordinator.currentSession(for: key)
+        let failing = PersistenceTransaction(context: f.container.mainContext, save: { _ in throw CocoaError(.fileWriteUnknown) })
+        let store = SolveSessionStore(defaults: f.defaults, transaction: failing)
+        let replacement = SolveGroupKey.practice([a.id, b.id])
+        #expect(throws: (any Error).self) {
+            try store.save(SolveSession(groupKey: replacement, cardIDs: [a.id, b.id]), for: replacement)
+        }
+        #expect(try f.store.load(for: key) == old)
+        #expect(try f.store.load(for: replacement) == nil)
+    }
+}

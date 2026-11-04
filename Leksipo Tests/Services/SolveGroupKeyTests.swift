@@ -11,6 +11,18 @@ import Foundation
 
 @Suite("SolveGroupKey — сериализация")
 struct SolveGroupKeyTests {
+
+    @Test("Подборка практики сохраняет все UUID, включая больше пяти карточек")
+    func practiceRoundTrip() throws {
+        let ids = (0..<12).map { _ in UUID() }
+        let key = SolveGroupKey.practice(ids)
+        #expect(SolveGroupKey(stringValue: key.stringValue) == key)
+        #expect(try JSONDecoder().decode(SolveGroupKey.self, from: JSONEncoder().encode(key)) == key)
+        let duplicate = SolveGroupKey.practice([ids[0], ids[0]])
+        #expect(SolveGroupKey(stringValue: duplicate.stringValue) == nil)
+        #expect(SolveGroupKey(stringValue: "practice_") == nil)
+        #expect(SolveGroupKey(stringValue: "practice_bad-uuid") == nil)
+    }
     
     @Test("system(.allCards): round-trip через stringValue")
     func systemAllCardsRoundTrip() {

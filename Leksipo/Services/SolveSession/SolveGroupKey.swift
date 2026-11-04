@@ -14,12 +14,15 @@ enum SolveGroupKey: Hashable, Codable {
     case system(SystemGroupType)
     case user(UUID)
     case srs
+    /// Снимок выбранных слов: изменения статистики не меняют подборку посреди занятия.
+    case practice([UUID])
     
     var stringValue: String {
         switch self {
         case .system(let type): return "system_\(type.rawValue)"
         case .user(let id):     return "user_\(id.uuidString)"
         case .srs:              return "srs"
+        case .practice(let ids): return "practice_" + ids.map(\.uuidString).joined(separator: ",")
         }
     }
     
@@ -29,7 +32,12 @@ enum SolveGroupKey: Hashable, Codable {
             return
         }
         
-        if stringValue.hasPrefix("system_") {
+        if stringValue.hasPrefix("practice_") {
+            let parts = stringValue.dropFirst("practice_".count).split(separator: ",", omittingEmptySubsequences: false)
+            let ids = parts.compactMap { UUID(uuidString: String($0)) }
+            guard !ids.isEmpty, ids.count == parts.count, Set(ids).count == ids.count else { return nil }
+            self = .practice(ids)
+        } else if stringValue.hasPrefix("system_") {
             let raw = String(stringValue.dropFirst("system_".count))
             guard let type = SystemGroupType(rawValue: raw) else { return nil }
             self = .system(type)

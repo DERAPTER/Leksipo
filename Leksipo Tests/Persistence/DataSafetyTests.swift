@@ -483,3 +483,60 @@ extension DataSafetyTests {
         #expect(try ModelContext(f.container).fetch(FetchDescriptor<UserSettings>()).first?.unlockedAchievementIDs.contains("group_1") == true)
     }
 }
+
+
+extension DataSafetyTests {
+    @Test("Асинхронное открытие базы допускает повтор после ошибки и защищено от повторного входа")
+    func asyncStartupRetry() async throws {
+        let container = try TestContainer.makeContainer()
+        let fixture = try SafetyFixture()
+        var attempts = 0
+        var migrations = 0
+        weak var startup: AppStartup?
+        let subject = AppStartup(loadContainer: {
+            attempts += 1
+            #expect(startup?.isStarting == true)
+            #expect(startup?.app == nil)
+            await startup?.startAsync()
+            if attempts == 1 { throw InjectedFailure.save }
+            return container
+        }, migrate: { _ in migrations += 1 }, makeApp: {
+            try AppContainer.live(container: $0, defaults: fixture.defaults, integrateSystemServices: false)
+        })
+        startup = subject
+        await subject.startAsync()
+        #expect(subject.app == nil)
+        #expect(subject.errorMessage != nil)
+        #expect(!subject.isStarting)
+        await subject.startAsync()
+        #expect(subject.app != nil)
+        #expect(subject.errorMessage == nil)
+        await subject.startAsync()
+        #expect(attempts == 2)
+        #expect(migrations == 1)
+    }
+
+    @Test("Отмена асинхронного открытия не запускает миграцию и не показывает ошибку базы")
+    func asyncStartupCancellation() async throws {
+        let container = try TestContainer.makeContainer()
+        let fixture = try SafetyFixture()
+        var attempts = 0
+        var migrations = 0
+        let startup = AppStartup(loadContainer: {
+            attempts += 1
+            if attempts == 1 { throw CancellationError() }
+            return container
+        }, migrate: { _ in migrations += 1 }, makeApp: {
+            try AppContainer.live(container: $0, defaults: fixture.defaults, integrateSystemServices: false)
+        })
+        await startup.startAsync()
+        #expect(startup.container == nil)
+        #expect(startup.app == nil)
+        #expect(startup.errorMessage == nil)
+        #expect(!startup.isStarting)
+        #expect(migrations == 0)
+        await startup.startAsync()
+        #expect(startup.app != nil)
+        #expect(migrations == 1)
+    }
+}

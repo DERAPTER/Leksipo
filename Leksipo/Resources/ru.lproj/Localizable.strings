@@ -768,3 +768,7 @@
 "achievement_srs_month_recall_desc" = "Успешно повторите карточку в SRS спустя не менее 30 дней после предыдущего повторения.";
 "achievement_srs_recovery" = "Слово приручено";
 "achievement_srs_recovery_desc" = "После ошибки в SRS успешно повторите ту же карточку три раза подряд в последующих назначенных повторениях.";
+
+// Difficult-card practice
+"progress_practice_all" = "Потренировать все";
+"progress_practice_hint" = "Классическая свободная практика. Расписание повторений SRS не изменится.";

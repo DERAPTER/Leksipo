@@ -7,12 +7,20 @@
 
 import WidgetKit
 import SwiftUI
+import UIKit
 
 struct SRSWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     @Environment(\.widgetRenderingMode) private var renderingMode
 
     let entry: SRSWidgetEntry
+
+    // WidgetKit ограничивает размер исходного растра, независимо от frame.
+    // Этих миниатюр хватает для среднего виджета при масштабе экрана 3x.
+    private static let idleMascot = UIImage(named: "dachshund-idle")?
+        .preparingThumbnail(of: CGSize(width: 240, height: 300))
+    private static let restingMascot = UIImage(named: "dachshund-rest")?
+        .preparingThumbnail(of: CGSize(width: 240, height: 300))
 
     private var hasDue: Bool {
         entry.snapshot.dueToday > 0
@@ -114,16 +122,8 @@ struct SRSWidgetEntryView: View {
     private var smallView: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center) {
-                ZStack {
-                    Circle()
-                        .fill(stateColor.opacity(0.15))
-                        .frame(width: 46, height: 46)
-
-                    Image(systemName: iconName)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(stateColor)
-                        .widgetAccentable()
-                }
+                mascot
+                    .frame(width: 60, height: 64)
 
                 Spacer(minLength: 4)
 
@@ -165,17 +165,26 @@ struct SRSWidgetEntryView: View {
         }
     }
 
+    // MARK: - Mascot
+
+    private var mascot: some View {
+        let thumbnail = hasDue ? Self.idleMascot : Self.restingMascot
+        let image = thumbnail.map { Image(uiImage: $0) } ?? Image(systemName: iconName)
+        return image
+            .renderingMode(.original)
+            .resizable()
+            .widgetAccentedRenderingMode(.accentedDesaturated)
+            .scaledToFit()
+            .foregroundStyle(stateColor)
+            .accessibilityHidden(true)
+    }
+
     // MARK: - Medium Widget
 
     private var mediumView: some View {
         HStack(spacing: 12) {
-            Image(decorative: hasDue ? "dachshund-idle" : "dachshund-rest")
-                .renderingMode(.original)
-                .resizable()
-                .widgetAccentedRenderingMode(.accentedDesaturated)
-                .scaledToFit()
+            mascot
                 .frame(width: 80, height: 100)
-                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 0) {
                 Spacer(minLength: 0)
