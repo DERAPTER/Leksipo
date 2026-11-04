@@ -59,6 +59,11 @@ private final class WorkflowFixture {
         ImportDataViewModel(cardRepository: cards, groupRepository: groups, transaction: tx, achievementsService: achievements, onComplete: {})
     }
 
+    func tableImporter() -> TableImportViewModel {
+        let importer = importer()
+        return TableImportViewModel(cards: cards, groups: groups, importGroups: { try importer.importPreparedGroups($0) })
+    }
+
     func srsViewModel() -> SRSViewModel {
         SRSViewModel(cardRepository: cards, statsRepository: stats, sessionCoordinator: coordinator, achievementsService: achievements, answerRecorder: recorder)
     }
@@ -338,6 +343,39 @@ struct StudyWorkflowTests {
 }
 
 extension StudyWorkflowTests {
+    @Test("Справка SRS остаётся открытой до первого реального ответа")
+    func srsHelpNeedsActualReview() throws {
+        let f = try WorkflowFixture()
+        let vm = SRSOverviewViewModel(cardRepository: f.cards, statsRepository: f.stats, defaults: f.defaults, now: { f.clock.date })
+        #expect(vm.hasSRSExperience == nil)
+        vm.load()
+        #expect(vm.hasSRSExperience == false)
+        try f.advance(2)
+        vm.load()
+        #expect(vm.hasSRSExperience == false)
+        let card = try f.card("one")
+        try f.cards.recordAnswer(card, correct: true)
+        _ = try f.stats.recordSolved(on: f.clock.date)
+        vm.load()
+        #expect(vm.hasSRSExperience == false)
+        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        vm.load()
+        #expect(vm.hasSRSExperience == true)
+    }
+
+    @Test("Опыт SRS определяется и по старым данным без сюжетных наград", arguments: [true, false])
+    func srsHelpRecognizesLegacyReviews(deleteCard: Bool) throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("legacy")
+        try f.cards.recordSRSReview(card, quality: 4, on: f.clock.date)
+        #expect(try f.stats.settings().srsMilestonesRaw == nil)
+        if deleteCard { try f.cards.delete(card) }
+        let vm = SRSOverviewViewModel(cardRepository: f.cards, statsRepository: f.stats, defaults: f.defaults, now: { f.clock.date })
+        vm.load()
+        #expect(vm.errorMessage == nil)
+        #expect(vm.hasSRSExperience == true)
+    }
+
     @Test("DST: день длится 23/25 часов, назначение следующего дня не попадает в очередь", arguments: ["2026-03-08", "2026-11-01"])
     func daylightSavingBoundary(key: String) throws {
         var calendar = Calendar(identifier: .gregorian)
@@ -764,5 +802,149 @@ extension StudyWorkflowTests {
         }
         #expect(try f.store.load(for: key) == old)
         #expect(try f.store.load(for: replacement) == nil)
+    }
+}
+
+extension StudyWorkflowTests {
+    @Test("Два столбца: заголовок, ошибки и дубликаты видны до импорта")
+    func tablePreviewAndImport() async throws {
+        let f = try WorkflowFixture()
+        let vm = f.tableImporter()
+        await vm.prepare(from: "Word\tПеревод\n cat \tкот\nCAT\tКОТ\nmissing\n\tdog\n\nvalid\tда\textra")
+        vm.firstRowIsHeader = true
+        #expect(vm.importableRows.map { $0.source.origin } == ["cat"])
+        #expect(vm.skippedRows.map(\.id) == [1, 3, 4, 5, 6, 7])
+        #expect(try f.cards.totalCount() == 0 && f.groups.userGroupsCount() == 0)
+        vm.importTable()
+        #expect(vm.showSuccessAlert && vm.errorMessage == nil)
+        #expect(try f.cards.totalCount() == 1 && f.groups.userGroupsCount() == 1)
+        #expect(try f.cards.fetchAll().first?.groups.count == 1)
+        vm.importTable()
+        #expect(try f.cards.totalCount() == 1)
+    }
+
+    @Test("Импортируется вся таблица, а не только первые пять пар предпросмотра")
+    func tableImportsAllRows() async throws {
+        let f = try WorkflowFixture()
+        let vm = f.tableImporter()
+        await vm.prepare(from: (0..<12).map { "w\($0)\tслово\($0)" }.joined(separator: "\n"))
+        #expect(vm.importableRows.count == 12)
+        vm.importTable()
+        #expect(vm.showSuccessAlert)
+        #expect(try f.cards.totalCount() == 12)
+        #expect(try f.groups.fetchUserGroups().first?.cards.count == 12)
+    }
+
+    @Test("Существующая карточка связывается с группой без перезаписи перевода, пояснений и SRS")
+    func tableReusesExistingCard() async throws {
+        let f = try WorkflowFixture()
+        let card = try f.cards.create(origin: "Cat", translated: "Кот", originDescription: "keep", translatedDescription: "keep too", groups: [])
+        try f.cards.recordSRSReview(card, quality: 4, on: f.clock.date)
+        let next = card.nextReviewDate
+        let vm = f.tableImporter()
+        await vm.prepare(from: " cat \t кот ")
+        #expect(vm.importableRows.first?.reusesCard == true)
+        vm.importTable()
+        #expect(try f.cards.totalCount() == 1)
+        #expect(card.groups.count == 1 && card.originWord == "Cat" && card.translatedWord == "Кот")
+        #expect(card.originDescription == "keep" && card.translatedDescription == "keep too")
+        #expect(card.nextReviewDate == next && card.repetitions == 1)
+        let second = f.tableImporter()
+        await second.prepare(from: "cat\tкот")
+        #expect(!second.canImport && second.skippedRows.first?.skipReason == "table_skip_present")
+    }
+
+    @Test("Выбор языков меняет совпадения и сохраняется в карточках и группе")
+    func tableSelectedLanguages() async throws {
+        let f = try WorkflowFixture()
+        _ = try f.cards.create(origin: "chat", translated: "кот", groups: [])
+        let vm = f.tableImporter()
+        await vm.prepare(from: "chat\tкот")
+        #expect(vm.importableRows.first?.reusesCard == true)
+        vm.languagePair = StudyLanguagePair(learning: try #require(StudyLanguage(code: "fr")), translation: .russian)
+        #expect(vm.importableRows.first?.reusesCard == false)
+        vm.importTable()
+        #expect(vm.showSuccessAlert)
+        #expect(try f.cards.totalCount() == 2)
+        #expect(try f.groups.fetchUserGroups().first?.languagePair == vm.languagePair)
+    }
+
+    @Test("Конфликт языков группы исправляется сменой имени без повторной вставки")
+    func tableGroupConflict() async throws {
+        let f = try WorkflowFixture()
+        let french = StudyLanguagePair(learning: try #require(StudyLanguage(code: "fr")), translation: .russian)
+        _ = try f.groups.create(name: "Group", languagePair: french)
+        let vm = f.tableImporter()
+        vm.groupName = " Group "
+        await vm.prepare(from: "cat\tкот")
+        #expect(!vm.canImport && vm.errorMessage != nil)
+        vm.groupName = "English"
+        #expect(vm.canImport && vm.errorMessage == nil)
+        vm.importTable()
+        #expect(vm.showSuccessAlert)
+        #expect(try f.groups.userGroupsCount() == 2)
+    }
+
+    @Test("Пустая новая вставка и таблица без пар не импортируют старое содержимое")
+    func tableInvalidatesOldPreview() async throws {
+        let f = try WorkflowFixture()
+        let vm = f.tableImporter()
+        await vm.prepare(from: "cat\tкот")
+        #expect(vm.canImport)
+        await vm.prepare(from: "")
+        #expect(!vm.canImport && vm.rows.isEmpty && vm.errorMessage != nil)
+        await vm.prepare(from: "only one column\na\tb\tc")
+        #expect(!vm.canImport && vm.skippedRows.count == 2)
+        vm.importTable()
+        #expect(try f.cards.totalCount() == 0 && f.groups.userGroupsCount() == 0)
+    }
+
+    @Test("Совпадения проверяются заново при записи после предпросмотра")
+    func tableRechecksDatabase() async throws {
+        let f = try WorkflowFixture()
+        let vm = f.tableImporter()
+        await vm.prepare(from: "cat\tкот")
+        #expect(vm.importableRows.first?.reusesCard == false)
+        let card = try f.card("cat")
+        try f.cards.update(card, origin: "cat", translated: "кот", groups: [])
+        vm.importTable()
+        #expect(vm.showSuccessAlert)
+        #expect(try f.cards.totalCount() == 1)
+        #expect(card.groups.count == 1)
+    }
+
+    @Test("Неудачный save откатывает импорт таблицы и позволяет повторить его")
+    func tableRollbackAndRetry() async throws {
+        let f = try WorkflowFixture()
+        var shouldFail = true
+        var completed = false
+        let tx = PersistenceTransaction(context: f.container.mainContext, save: { context in
+            if shouldFail { throw CocoaError(.fileWriteUnknown) }
+            try context.save()
+        })
+        let cards = SwiftDataCardRepository(context: f.container.mainContext, transaction: tx)
+        let groups = SwiftDataGroupRepository(context: f.container.mainContext, transaction: tx)
+        let importer = ImportDataViewModel(cardRepository: cards, groupRepository: groups, transaction: tx, onComplete: { completed = true })
+        let vm = TableImportViewModel(cards: cards, groups: groups, importGroups: { try importer.importPreparedGroups($0) })
+        await vm.prepare(from: "cat\tкот\ndog\tсобака")
+        vm.importTable()
+        #expect(!vm.showSuccessAlert && !completed && vm.errorMessage != nil)
+        #expect(try f.cards.totalCount() == 0 && f.groups.userGroupsCount() == 0)
+        #expect(!f.container.mainContext.hasChanges)
+        shouldFail = false
+        vm.importTable()
+        #expect(vm.showSuccessAlert && completed)
+        #expect(try f.cards.totalCount() == 2)
+    }
+
+    @Test("Отмена разбора не публикует предпросмотр и ничего не записывает")
+    func tableParseCancellation() async throws {
+        let f = try WorkflowFixture()
+        let vm = f.tableImporter()
+        let work = Task { await vm.prepare(from: String(repeating: "cat\tкот\n", count: 10_000)) }
+        work.cancel()
+        await work.value
+        #expect(!vm.canImport && vm.rows.isEmpty && !vm.isParsing)
+        #expect(try f.cards.totalCount() == 0)
     }
 }

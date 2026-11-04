@@ -772,3 +772,26 @@
 // Difficult-card practice
 "progress_practice_all" = "Потренировать все";
 "progress_practice_hint" = "Классическая свободная практика. Расписание повторений SRS не изменится.";
+
+// Two-column clipboard import
+"table_import_source" = "Из таблицы";
+"table_import_json_hint" = "JSON — для готовых наборов с группами, примерами и пояснениями.";
+"table_import_group_default" = "Слова из таблицы";
+"table_import_intro" = "Скопируйте два столбца из таблицы: слова и их переводы. Вставьте их сюда — перед импортом вы увидите пары.";
+"table_import_reading" = "Читаем таблицу…";
+"table_import_header" = "Первая строка — заголовки";
+"table_import_group" = "Название группы";
+"table_import_ready" = "Пар к импорту: %d";
+"table_import_reuse" = "Карточка уже есть — добавим её в группу";
+"table_import_preview_limit" = "Показаны первые пять пар. Будут импортированы все подходящие строки.";
+"table_import_skipped" = "Пропущено строк: %d";
+"table_import_skipped_row" = "Строка %@: %@";
+"table_import_success" = "Создано карточек: %d. Добавлено существующих в группу: %d. Пропущено строк: %d.";
+"table_skip_header" = "заголовки столбцов";
+"table_skip_blank" = "пустая строка";
+"table_skip_columnCount" = "нужно ровно два столбца; скопируйте слова и переводы из таблицы";
+"table_skip_emptyOrigin" = "не заполнено слово в первом столбце";
+"table_skip_emptyTranslation" = "не заполнен перевод во втором столбце";
+"table_skip_quotes" = "незакрытые или некорректные кавычки в ячейке";
+"table_skip_duplicate" = "эта пара уже встречалась выше";
+"table_skip_present" = "эта карточка уже есть в выбранной группе";

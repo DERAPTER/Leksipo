@@ -10,6 +10,7 @@ import SwiftUI
 struct SRSOverviewView: View {
     @Environment(AppContainer.self) private var container
     @State private var viewModel: SRSOverviewViewModel
+    @State private var isHelpExpanded = false
     
     init(container: AppContainer) {
         _viewModel = State(initialValue: SRSOverviewViewModel(
@@ -22,8 +23,8 @@ struct SRSOverviewView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
-                    streakCard
                     statusCard
+                    streakCard
                     infoCard
                 }
                 .padding()
@@ -37,6 +38,10 @@ struct SRSOverviewView: View {
             }
             .task { viewModel.load() }
             .onAppear { viewModel.load() }
+            .onChange(of: viewModel.hasSRSExperience, initial: true) { _, hasExperience in
+                guard let hasExperience else { return }
+                isHelpExpanded = !hasExperience
+            }
         }
     }
     
@@ -232,7 +237,13 @@ struct SRSOverviewView: View {
     // MARK: - Info
     
     private var infoCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        DisclosureGroup(isExpanded: $isHelpExpanded) {
+            Text("srs_overview_how_it_works_desc".localized())
+                .font(.captionCustom)
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 8)
+        } label: {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle.fill")
                     .foregroundColor(.accent)
@@ -240,12 +251,8 @@ struct SRSOverviewView: View {
                     .font(.bodyCustom.weight(.semibold))
                     .foregroundColor(.textPrimary)
             }
-            
-            Text("srs_overview_how_it_works_desc".localized())
-                .font(.captionCustom)
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
+        .tint(Color.accent)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.cardBackground)

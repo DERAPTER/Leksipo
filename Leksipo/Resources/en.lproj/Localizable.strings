@@ -771,3 +771,26 @@
 // Difficult-card practice
 "progress_practice_all" = "Practice all";
 "progress_practice_hint" = "Classic free practice. Your SRS review schedule stays the same.";
+
+// Two-column clipboard import
+"table_import_source" = "From a table";
+"table_import_json_hint" = "JSON is for structured sets with groups, examples and notes.";
+"table_import_group_default" = "Words from a table";
+"table_import_intro" = "Copy two columns from a spreadsheet: words and their translations. Paste them here to preview the pairs.";
+"table_import_reading" = "Reading table…";
+"table_import_header" = "First row contains headers";
+"table_import_group" = "Group name";
+"table_import_ready" = "Pairs ready to import: %d";
+"table_import_reuse" = "This card exists; we’ll add it to the group";
+"table_import_preview_limit" = "Showing the first five pairs. All eligible rows will be imported.";
+"table_import_skipped" = "Skipped rows: %d";
+"table_import_skipped_row" = "Row %@: %@";
+"table_import_success" = "Cards created: %d. Existing cards added to the group: %d. Rows skipped: %d.";
+"table_skip_header" = "column headers";
+"table_skip_blank" = "empty row";
+"table_skip_columnCount" = "exactly two columns are required; copy words and translations from a spreadsheet";
+"table_skip_emptyOrigin" = "the word in the first column is empty";
+"table_skip_emptyTranslation" = "the translation in the second column is empty";
+"table_skip_quotes" = "unclosed or malformed quotes in a cell";
+"table_skip_duplicate" = "this pair already appeared above";
+"table_skip_present" = "this card is already in the selected group";

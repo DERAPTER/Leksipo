@@ -185,19 +185,24 @@ final class ImportDataViewModel {
         guard !parsedGroups.isEmpty else { return }
         showDuplicateAlert = false
         do {
-            // Повторяем расчёт внутри транзакции: база могла измениться после предпросмотра.
-            let result = try transaction.perform { try process(groups: parsedGroups, write: true) }
-            successMessage = result.message
+            successMessage = try importPreparedGroups(parsedGroups)
             showSuccessAlert = true
             parsedGroups = []
-            achievementsService?.evaluate()
-            onComplete()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private struct CardKey: Hashable {
+    /// Оба способа импорта используют одни правила совпадений и одну транзакцию.
+    func importPreparedGroups(_ groups: [ImportGroupDTO]) throws -> String {
+        let groups = try normalized(groups)
+        let result = try transaction.perform { try process(groups: groups, write: true) }
+        achievementsService?.evaluate()
+        onComplete()
+        return result.message
+    }
+
+    struct CardKey: Hashable {
         let origin: String
         let translated: String
         let languages: StudyLanguagePair

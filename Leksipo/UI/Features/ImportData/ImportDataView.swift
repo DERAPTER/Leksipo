@@ -14,10 +14,18 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ImportDataView: View {
+    private enum Source: String, CaseIterable {
+        case table, json
+        var title: String { self == .table ? "table_import_source".localized() : "JSON" }
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(AppContainer.self) private var container
     @State private var didLoadLanguages = false
     @State private var viewModel: ImportDataViewModel
+    @State private var tableViewModel: TableImportViewModel
+    @State private var source = Source.table
+    @State private var languageLoadError: String?
     @State private var showHelpSheet = false
     
     // Состояния для анимации копирования
@@ -25,12 +33,17 @@ struct ImportDataView: View {
     @State private var isPromptCopied = false
     
     init(container: AppContainer, onComplete: @escaping () -> Void) {
-        _viewModel = State(initialValue: ImportDataViewModel(
+        let importer = ImportDataViewModel(
             cardRepository: container.cardRepository,
             groupRepository: container.groupRepository,
             transaction: container.transaction,
             achievementsService: container.achievementsService,
             onComplete: onComplete
+        )
+        _viewModel = State(initialValue: importer)
+        _tableViewModel = State(initialValue: TableImportViewModel(
+            cards: container.cardRepository, groups: container.groupRepository,
+            importGroups: { try importer.importPreparedGroups($0) }
         ))
     }
     
@@ -38,150 +51,18 @@ struct ImportDataView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    StudyLanguagePairPicker(pair: $viewModel.languagePair).padding(.horizontal)
-                    Text("import_language_hint".localized()).font(.captionCustom)
-                        .foregroundStyle(Color.textSecondary).padding(.horizontal)
-                
-                    // 1. Кнопки копирования (Шаблон и Промпт)
-                    VStack(spacing: 8) {
-                        // Кнопка: Скопировать шаблон JSON
-                        Button {
-                            UIPasteboard.general.string = viewModel.jsonTemplate
-                            withAnimation { isTemplateCopied = true }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                withAnimation { isTemplateCopied = false }
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: isTemplateCopied ? "checkmark" : "doc.on.doc")
-                                Text(isTemplateCopied ? "import_copied".localized() : "import_copy_template_top".localized())
-                            }
-                            .font(.captionCustom.weight(.medium))
-                            .foregroundColor(isTemplateCopied ? .green : .accent)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
-                            .background(Color.cardBackground)
-                            .cornerRadius(20)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(isTemplateCopied ? Color.green : Color.accent, lineWidth: 1)
-                            )
-                        }
-
-                        // Кнопка: Скопировать промпт для нейросети (цвет изменен на accent)
-                        Button {
-                            UIPasteboard.general.string = viewModel.aiPromptTemplate
-                            withAnimation { isPromptCopied = true }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                withAnimation { isPromptCopied = false }
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: isPromptCopied ? "checkmark" : "sparkles")
-                                Text(isPromptCopied ? "import_copied".localized() : "import_copy_prompt_top".localized())
-                            }
-                            .font(.captionCustom.weight(.medium))
-                            .foregroundColor(isPromptCopied ? .green : .accent)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
-                            .background(Color.cardBackground)
-                            .cornerRadius(20)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(isPromptCopied ? Color.green : Color.accent, lineWidth: 1)
-                            )
-                        }
+                    Picker("import_title".localized(), selection: $source) {
+                        ForEach(Source.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
-                    .padding(.top, 12)
-                    // Убрали .padding(.horizontal, 20), так как кнопки больше не растягиваются
-
-                    Spacer().frame(height: 10)
-
-                    // 2. Главная кнопка "Вставить из буфера"
-                    Button {
-                        viewModel.pasteFromClipboard()
-                    } label: {
-                        VStack(spacing: 12) {
-                            Image(systemName: "doc.on.clipboard.fill")
-                                .font(.system(size: 40))
-
-                            Text("import_paste_from_clipboard".localized())
-                                .font(.bodyCustom.weight(.semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 32)
-                        .background(Color.accent)
-                        .cornerRadius(16)
+                    .pickerStyle(.segmented).padding(.horizontal)
+                    if source == .table {
+                        TableImportContent(viewModel: tableViewModel, onClose: { dismiss() })
+                    } else {
+                        jsonContent
                     }
-                    .padding(.horizontal)
-                
-                    // Индикатор того, что текст вставлен
-                    if !viewModel.jsonText.isEmpty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("import_pasted_success".localized())
-                                .font(.captionCustom)
-                                .foregroundColor(.textSecondary)
-                        }
-                        .transition(.opacity)
+                    if let languageLoadError {
+                        Text(languageLoadError).font(.captionCustom).foregroundStyle(Color.red).padding(.horizontal)
                     }
-                
-                    // Разделитель "или"
-                    HStack {
-                        Rectangle().fill(Color.stroke).frame(height: 1)
-                        Text("import_or".localized())
-                            .font(.captionCustom)
-                            .foregroundColor(.textSecondary)
-                        Rectangle().fill(Color.stroke).frame(height: 1)
-                    }
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 10)
-                
-                    // 3. Кнопка загрузки файла
-                    Button {
-                        viewModel.showFileImporter = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "folder.badge.plus")
-                            Text("import_select_file".localized())
-                        }
-                        .font(.bodyCustom.weight(.medium))
-                        .foregroundColor(.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.cardBackground)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.accent, lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
-
-                    // 4. Кнопка "Как это работает"
-                    Button {
-                        showHelpSheet = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "info.circle")
-                            Text("import_how_it_works".localized())
-                        }
-                        .font(.captionCustom)
-                        .foregroundColor(.textSecondary)
-                    }
-                    .padding(.top, 10)
-                
-                    if let error = viewModel.errorMessage {
-                        Text(error)
-                            .font(.captionCustom)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-                
-                    Spacer()
                 }
                 .padding(.top, 12)
             }
@@ -189,8 +70,14 @@ struct ImportDataView: View {
                 guard !didLoadLanguages else { return }
                 do {
                     viewModel.languagePair = try container.statsRepository.settings().languagePair
+                    tableViewModel.languagePair = viewModel.languagePair
+                    languageLoadError = nil
                     didLoadLanguages = true
-                } catch { viewModel.errorMessage = error.localizedDescription }
+                } catch { languageLoadError = error.localizedDescription }
+            }
+            .onChange(of: source) { _, source in
+                if source == .json { viewModel.languagePair = tableViewModel.languagePair }
+                else { tableViewModel.languagePair = viewModel.languagePair }
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("import_title".localized())
@@ -201,10 +88,11 @@ struct ImportDataView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("import_btn".localized()) {
-                        viewModel.startImport(from: viewModel.jsonText)
+                        if source == .table { tableViewModel.importTable() }
+                        else { viewModel.startImport(from: viewModel.jsonText) }
                     }
                     // Блокируем кнопку импорта, если текст не вставлен
-                    .disabled(!didLoadLanguages || viewModel.jsonText.isEmpty)
+                    .disabled(!didLoadLanguages || (source == .table ? !tableViewModel.canImport : viewModel.jsonText.isEmpty))
                     .fontWeight(.semibold)
                 }
             }
@@ -229,6 +117,157 @@ struct ImportDataView: View {
             } message: {
                 Text(viewModel.successMessage)
             }
+        }
+    }
+
+    private var jsonContent: some View {
+        VStack(spacing: 20) {
+            Text("table_import_json_hint".localized()).font(.captionCustom)
+                .foregroundStyle(Color.textSecondary).padding(.horizontal)
+            StudyLanguagePairPicker(pair: $viewModel.languagePair).padding(.horizontal)
+            Text("import_language_hint".localized()).font(.captionCustom)
+                .foregroundStyle(Color.textSecondary).padding(.horizontal)
+
+            // 1. Кнопки копирования (Шаблон и Промпт)
+            VStack(spacing: 8) {
+                // Кнопка: Скопировать шаблон JSON
+                Button {
+                    UIPasteboard.general.string = viewModel.jsonTemplate
+                    withAnimation { isTemplateCopied = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation { isTemplateCopied = false }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: isTemplateCopied ? "checkmark" : "doc.on.doc")
+                        Text(isTemplateCopied ? "import_copied".localized() : "import_copy_template_top".localized())
+                    }
+                    .font(.captionCustom.weight(.medium))
+                    .foregroundColor(isTemplateCopied ? .green : .accent)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.cardBackground)
+                    .cornerRadius(20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(isTemplateCopied ? Color.green : Color.accent, lineWidth: 1)
+                    )
+                }
+
+                // Кнопка: Скопировать промпт для нейросети (цвет изменен на accent)
+                Button {
+                    UIPasteboard.general.string = viewModel.aiPromptTemplate
+                    withAnimation { isPromptCopied = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation { isPromptCopied = false }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: isPromptCopied ? "checkmark" : "sparkles")
+                        Text(isPromptCopied ? "import_copied".localized() : "import_copy_prompt_top".localized())
+                    }
+                    .font(.captionCustom.weight(.medium))
+                    .foregroundColor(isPromptCopied ? .green : .accent)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.cardBackground)
+                    .cornerRadius(20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(isPromptCopied ? Color.green : Color.accent, lineWidth: 1)
+                    )
+                }
+            }
+            .padding(.top, 12)
+            // Убрали .padding(.horizontal, 20), так как кнопки больше не растягиваются
+
+            Spacer().frame(height: 10)
+
+            // 2. Главная кнопка "Вставить из буфера"
+            Button {
+                viewModel.pasteFromClipboard()
+            } label: {
+                VStack(spacing: 12) {
+                    Image(systemName: "doc.on.clipboard.fill")
+                        .font(.system(size: 40))
+
+                    Text("import_paste_from_clipboard".localized())
+                        .font(.bodyCustom.weight(.semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(Color.accent)
+                .cornerRadius(16)
+            }
+            .padding(.horizontal)
+
+            // Индикатор того, что текст вставлен
+            if !viewModel.jsonText.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("import_pasted_success".localized())
+                        .font(.captionCustom)
+                        .foregroundColor(.textSecondary)
+                }
+                .transition(.opacity)
+            }
+
+            // Разделитель "или"
+            HStack {
+                Rectangle().fill(Color.stroke).frame(height: 1)
+                Text("import_or".localized())
+                    .font(.captionCustom)
+                    .foregroundColor(.textSecondary)
+                Rectangle().fill(Color.stroke).frame(height: 1)
+            }
+            .padding(.horizontal, 40)
+            .padding(.vertical, 10)
+
+            // 3. Кнопка загрузки файла
+            Button {
+                viewModel.showFileImporter = true
+            } label: {
+                HStack {
+                    Image(systemName: "folder.badge.plus")
+                    Text("import_select_file".localized())
+                }
+                .font(.bodyCustom.weight(.medium))
+                .foregroundColor(.accent)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.cardBackground)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accent, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal)
+
+            // 4. Кнопка "Как это работает"
+            Button {
+                showHelpSheet = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "info.circle")
+                    Text("import_how_it_works".localized())
+                }
+                .font(.captionCustom)
+                .foregroundColor(.textSecondary)
+            }
+            .padding(.top, 10)
+
+            if let error = viewModel.errorMessage {
+                Text(error)
+                    .font(.captionCustom)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            Spacer()
         }
     }
 }
