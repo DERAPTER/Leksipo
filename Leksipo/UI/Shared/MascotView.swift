@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MascotPose: String, CaseIterable {
     case idle = "dachshund-idle"
+    case sad = "dachshund-sad"
     case welcome = "dachshund-welcome"
     case thinking = "dachshund-thinking"
     case support = "dachshund-support"

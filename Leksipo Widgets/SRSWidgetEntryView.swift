@@ -17,7 +17,7 @@ struct SRSWidgetEntryView: View {
 
     // WidgetKit ограничивает размер исходного растра, независимо от frame.
     // Этих миниатюр хватает для среднего виджета при масштабе экрана 3x.
-    private static let idleMascot = UIImage(named: "dachshund-idle")?
+    private static let sadMascot = UIImage(named: "dachshund-sad")?
         .preparingThumbnail(of: CGSize(width: 240, height: 300))
     private static let restingMascot = UIImage(named: "dachshund-rest")?
         .preparingThumbnail(of: CGSize(width: 240, height: 300))
@@ -168,7 +168,7 @@ struct SRSWidgetEntryView: View {
     // MARK: - Mascot
 
     private var mascot: some View {
-        let thumbnail = hasDue ? Self.idleMascot : Self.restingMascot
+        let thumbnail = hasDue ? Self.sadMascot : Self.restingMascot
         let image = thumbnail.map { Image(uiImage: $0) } ?? Image(systemName: iconName)
         return image
             .renderingMode(.original)

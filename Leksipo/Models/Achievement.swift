@@ -28,9 +28,10 @@ struct Achievement: Identifiable, Hashable {
         case .srsMilestone:
             return SRSMilestone(rawValue: id)?.artwork
         case .srsStreak:
-            // У каждой иллюстрации одна награда; промежуточные ступени используют значки.
             switch requiredValue {
+            case 3: return .rhythm3
             case 7: return .rhythm7
+            case 14: return .rhythm14
             case 30: return .rhythm30
             case 100: return .rhythm100
             default: return nil
@@ -47,7 +48,9 @@ enum AchievementArtwork: String, CaseIterable {
     case weekLater = "achievement-week-later"
     case longMemory = "achievement-long-memory"
     case wordTamed = "achievement-word-tamed"
+    case rhythm3 = "achievement-rhythm-3"
     case rhythm7 = "achievement-rhythm-7"
+    case rhythm14 = "achievement-rhythm-14"
     case rhythm30 = "achievement-rhythm-30"
     case rhythm100 = "achievement-rhythm-100"
 }

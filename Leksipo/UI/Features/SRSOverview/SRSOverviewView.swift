@@ -110,6 +110,9 @@ struct SRSOverviewView: View {
     
     private func dueTodayCard(_ overview: SRSOverview) -> some View {
         VStack(spacing: 16) {
+            MascotView(pose: .sad)
+                .frame(width: 144, height: 104)
+
             HStack(alignment: .firstTextBaseline) {
                 Text("srs_overview_available_today".localized())
                     .font(.bodyCustom)
