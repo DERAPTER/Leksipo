@@ -807,3 +807,31 @@
 "group_import_new" = "Добавится карточек";
 "group_import_existing" = "Уже есть";
 "group_import_merge_hint" = "Совпадающие карточки добавятся в эту группу без копий. Ваши пояснения и прогресс повторений сохранятся. Группа с таким же названием и языками будет дополнена.";
+
+// Profile customization
+"profile_edit" = "Редактировать профиль";
+"profile_editor_title" = "Профиль";
+"profile_name" = "Имя";
+"profile_name_empty_hint" = "Если оставить поле пустым, в профиле будет «Ученик».";
+"profile_avatar_background" = "Фон аватара";
+"profile_avatar_background_sand" = "Песочный";
+"profile_avatar_background_sky" = "Голубой";
+"profile_avatar_background_mint" = "Мятный";
+"profile_avatar_background_lavender" = "Сиреневый";
+"profile_avatar_background_rose" = "Розовый";
+"profile_avatar_background_gingham" = "Клетка";
+"profile_avatar_background_rain" = "Капли дождя";
+"profile_avatar_background_snow" = "Снежинки";
+"profile_avatar_background_stars" = "Звёзды";
+"profile_avatar_background_none" = "Без фона";
+"profile_avatar_hats" = "Головные уборы";
+"profile_avatar_hat_none" = "Без головного убора";
+"profile_avatar_hat_beret" = "Бордовый берет";
+"profile_avatar_hat_bucketHat" = "Панама";
+"profile_avatar_hat_ushanka" = "Ушанка";
+"profile_avatar_neckwear" = "Аксессуары на шею";
+"profile_avatar_neck_none" = "Без аксессуара";
+"profile_avatar_neck_scarf" = "Полосатый шарф";
+"profile_avatar_neck_bandana" = "Клетчатая бандана";
+"profile_avatar_neck_bowTie" = "Галстук-бабочка";
+"profile_avatar_neck_collar" = "Ошейник с жетоном";

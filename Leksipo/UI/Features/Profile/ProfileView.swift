@@ -4,7 +4,11 @@ struct ProfileView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("userName") private var userName = ""
+    @AppStorage("profileAvatarBackground") private var avatarBackground = LexiAvatarBackground.sand
+    @AppStorage("profileAvatarHeadwear") private var avatarHeadwear = LexiAvatarHeadwear.none
+    @AppStorage("profileAvatarNeckwear") private var avatarNeckwear = LexiAvatarNeckwear.none
     @State private var viewModel: ProfileViewModel
+    @State private var showCustomization = false
 
     init(container: AppContainer) {
         _viewModel = State(initialValue: ProfileViewModel(statsRepository: container.statsRepository,
@@ -17,6 +21,7 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     header
+                    streakSection
                     if let error = viewModel.errorMessage {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(error).foregroundStyle(.red)
@@ -50,23 +55,59 @@ struct ProfileView: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in viewModel.load() }
             .sheet(isPresented: $viewModel.showAllAchievements) { AllAchievementsSheet(achievements: viewModel.achievements) }
             .sheet(isPresented: $viewModel.showHistory) { ProgressHistoryView(days: viewModel.history) }
+            .sheet(isPresented: $showCustomization) {
+                ProfileCustomizationView(name: userName, appearance: avatarAppearance) { name, appearance in
+                    userName = name
+                    avatarBackground = appearance.background
+                    avatarHeadwear = appearance.headwear
+                    avatarNeckwear = appearance.neckwear
+                }
+            }
         }
     }
 
+    private var avatarAppearance: LexiAvatarAppearance {
+        LexiAvatarAppearance(background: avatarBackground, headwear: avatarHeadwear, neckwear: avatarNeckwear)
+    }
+
     private var header: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Label(userName.isEmpty ? "learner".localized() : userName, systemImage: "person.crop.circle")
-                .font(.bodyCustom).foregroundStyle(Color.textSecondary)
-            HStack(spacing: 16) {
-                MascotView(pose: viewModel.srsStreak > 0 ? .success : .support).frame(width: 72, height: 80)
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("progress_streak".localized(), systemImage: "flame.fill")
-                        .font(.bodyCustom.weight(.semibold)).foregroundStyle(Color.accent)
-                    Text(viewModel.hasLoaded ? "\(viewModel.srsStreak)" : "—").font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("progress_streak_hint".localized()).font(.captionCustom).foregroundStyle(Color.textSecondary)
-                }
-                Spacer(minLength: 0)
+        VStack(spacing: 12) {
+            LexiAvatarView(appearance: avatarAppearance, size: 128)
+            Text(userName.isEmpty ? "learner".localized() : userName)
+                .font(.titleCustom)
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showCustomization = true
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(Color.appBackground, in: Circle())
+                    .contentShape(Circle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("profile_edit".localized())
+            .padding(12)
+        }
+    }
+
+    private var streakSection: some View {
+        HStack(spacing: 16) {
+            MascotView(pose: viewModel.srsStreak > 0 ? .success : .support).frame(width: 72, height: 80)
+            VStack(alignment: .leading, spacing: 6) {
+                Label("progress_streak".localized(), systemImage: "flame.fill")
+                    .font(.bodyCustom.weight(.semibold)).foregroundStyle(Color.accent)
+                Text(viewModel.hasLoaded ? "\(viewModel.srsStreak)" : "—").font(.system(size: 36, weight: .bold, design: .rounded))
+                Text("progress_streak_hint".localized()).font(.captionCustom).foregroundStyle(Color.textSecondary)
+            }
+            Spacer(minLength: 0)
         }
         .foregroundStyle(Color.textPrimary)
         .padding()

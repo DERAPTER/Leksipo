@@ -806,3 +806,31 @@
 "group_import_new" = "Cards to add";
 "group_import_existing" = "Already in your collection";
 "group_import_merge_hint" = "Matching cards will be linked to this group without creating copies. Your explanations and review progress will be preserved. A group with the same name and languages will be updated.";
+
+// Profile customization
+"profile_edit" = "Edit profile";
+"profile_editor_title" = "Profile";
+"profile_name" = "Name";
+"profile_name_empty_hint" = "Leave the name blank to appear as “Learner.”";
+"profile_avatar_background" = "Avatar background";
+"profile_avatar_background_sand" = "Sand";
+"profile_avatar_background_sky" = "Sky blue";
+"profile_avatar_background_mint" = "Mint";
+"profile_avatar_background_lavender" = "Lavender";
+"profile_avatar_background_rose" = "Rose";
+"profile_avatar_background_gingham" = "Gingham";
+"profile_avatar_background_rain" = "Raindrops";
+"profile_avatar_background_snow" = "Snowflakes";
+"profile_avatar_background_stars" = "Stars";
+"profile_avatar_background_none" = "No background";
+"profile_avatar_hats" = "Headwear";
+"profile_avatar_hat_none" = "No headwear";
+"profile_avatar_hat_beret" = "Burgundy beret";
+"profile_avatar_hat_bucketHat" = "Bucket hat";
+"profile_avatar_hat_ushanka" = "Ushanka";
+"profile_avatar_neckwear" = "Neck accessories";
+"profile_avatar_neck_none" = "No neck accessory";
+"profile_avatar_neck_scarf" = "Striped scarf";
+"profile_avatar_neck_bandana" = "Checked bandana";
+"profile_avatar_neck_bowTie" = "Bow tie";
+"profile_avatar_neck_collar" = "Collar with a tag";
