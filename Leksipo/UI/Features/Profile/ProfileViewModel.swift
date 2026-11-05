@@ -37,7 +37,6 @@ final class ProfileViewModel {
         let srsReviews: Int
     }
 
-    private(set) var srsStreak = 0
     private(set) var languages: [LanguageProgress] = []
     private(set) var week: [DayProgress] = []
     private(set) var history: [DayProgress] = []
@@ -69,7 +68,6 @@ final class ProfileViewModel {
             let date = now()
             let cards = try cardRepository.fetchAll()
             let records = try statsRepository.activityHistory(monthsBack: -1)
-            let streak = try statsRepository.currentSRSStreak(on: date)
             let todayKey = StudyDay.key(for: date, calendar: calendar)
             let byDay = Dictionary(uniqueKeysWithValues: records.map { ($0.dateKey, $0) })
             let days = (0..<7).reversed().compactMap { offset -> DayProgress? in
@@ -95,7 +93,6 @@ final class ProfileViewModel {
             history = fullHistory
             week = days
             languages = languageProgress
-            srsStreak = streak
             achievementsService.evaluate()
             achievements = achievementsService.allAchievements
             hasLoaded = true

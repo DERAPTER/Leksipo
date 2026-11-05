@@ -20,7 +20,6 @@ final class SettingsViewModel {
     
     var showResetStatsAlert = false
     var showDeleteAllAlert = false
-    var showReleaseNotesSheet = false
     var showLanguageChangeAlert = false
     
     var pendingLanguage: AppLanguage?

@@ -20,23 +20,47 @@ enum LexiAvatarBackground: String, CaseIterable, Identifiable {
 }
 
 enum LexiAvatarHeadwear: String, CaseIterable, Identifiable {
-    case none, beret, bucketHat, ushanka
+    case none, beret, bucketHat, ushanka, cap, graduationCap, chefHat
 
     var id: Self { self }
     var title: String { "profile_avatar_hat_\(rawValue)".localized() }
 }
 
 enum LexiAvatarNeckwear: String, CaseIterable, Identifiable {
-    case none, scarf, bandana, bowTie, collar
+    case none, scarf, bandana, bowTie, collar, sailorScarf, stripedTie, buttonCollar
 
     var id: Self { self }
     var title: String { "profile_avatar_neck_\(rawValue)".localized() }
+}
+
+enum LexiAvatarGlasses: String, CaseIterable, Identifiable {
+    case none, round, square, catEye
+
+    var id: Self { self }
+    var title: String { "profile_avatar_glasses_\(rawValue)".localized() }
+}
+
+enum LexiAvatarEarAccessory: String, CaseIterable, Identifiable {
+    case none, star, bow, flower
+
+    var id: Self { self }
+    var title: String { "profile_avatar_ear_\(rawValue)".localized() }
+}
+
+enum LexiAvatarHeadphones: String, CaseIterable, Identifiable {
+    case none, studio, retro
+
+    var id: Self { self }
+    var title: String { "profile_avatar_headphones_\(rawValue)".localized() }
 }
 
 struct LexiAvatarAppearance {
     var background: LexiAvatarBackground
     var headwear: LexiAvatarHeadwear
     var neckwear: LexiAvatarNeckwear
+    var glasses: LexiAvatarGlasses
+    var earAccessory: LexiAvatarEarAccessory
+    var headphones: LexiAvatarHeadphones
 }
 
 struct LexiAvatarView: View {
@@ -49,10 +73,25 @@ struct LexiAvatarView: View {
             MascotView(pose: .face)
                 .frame(width: size * 0.9, height: size * 0.9)
                 .offset(y: size * 0.05)
+            if appearance.headphones != .none {
+                LexiHeadphonesArtwork(option: appearance.headphones)
+                    .frame(width: size * 0.84, height: size * 0.53)
+                    .offset(y: size * 0.1)
+            }
             if appearance.headwear != .none {
                 LexiHeadwearArtwork(option: appearance.headwear)
                     .frame(width: size * 0.64, height: size * 0.32)
                     .offset(y: -size * 0.02)
+            }
+            if appearance.glasses != .none {
+                LexiGlassesArtwork(option: appearance.glasses)
+                    .frame(width: size * 0.48, height: size * 0.27)
+                    .offset(y: size * 0.283)
+            }
+            if appearance.earAccessory != .none {
+                LexiEarAccessoryArtwork(option: appearance.earAccessory)
+                    .frame(width: size * 0.18, height: size * 0.14)
+                    .offset(x: -size * 0.28, y: size * 0.59)
             }
             if appearance.neckwear != .none {
                 LexiNeckwearArtwork(option: appearance.neckwear)

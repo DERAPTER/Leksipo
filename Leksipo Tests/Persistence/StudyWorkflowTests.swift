@@ -343,39 +343,6 @@ struct StudyWorkflowTests {
 }
 
 extension StudyWorkflowTests {
-    @Test("Справка SRS остаётся открытой до первого реального ответа")
-    func srsHelpNeedsActualReview() throws {
-        let f = try WorkflowFixture()
-        let vm = SRSOverviewViewModel(cardRepository: f.cards, statsRepository: f.stats, defaults: f.defaults, now: { f.clock.date })
-        #expect(vm.hasSRSExperience == nil)
-        vm.load()
-        #expect(vm.hasSRSExperience == false)
-        try f.advance(2)
-        vm.load()
-        #expect(vm.hasSRSExperience == false)
-        let card = try f.card("one")
-        try f.cards.recordAnswer(card, correct: true)
-        _ = try f.stats.recordSolved(on: f.clock.date)
-        vm.load()
-        #expect(vm.hasSRSExperience == false)
-        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
-        vm.load()
-        #expect(vm.hasSRSExperience == true)
-    }
-
-    @Test("Опыт SRS определяется и по старым данным без сюжетных наград", arguments: [true, false])
-    func srsHelpRecognizesLegacyReviews(deleteCard: Bool) throws {
-        let f = try WorkflowFixture()
-        let card = try f.card("legacy")
-        try f.cards.recordSRSReview(card, quality: 4, on: f.clock.date)
-        #expect(try f.stats.settings().srsMilestonesRaw == nil)
-        if deleteCard { try f.cards.delete(card) }
-        let vm = SRSOverviewViewModel(cardRepository: f.cards, statsRepository: f.stats, defaults: f.defaults, now: { f.clock.date })
-        vm.load()
-        #expect(vm.errorMessage == nil)
-        #expect(vm.hasSRSExperience == true)
-    }
-
     @Test("DST: день длится 23/25 часов, назначение следующего дня не попадает в очередь", arguments: ["2026-03-08", "2026-11-01"])
     func daylightSavingBoundary(key: String) throws {
         var calendar = Calendar(identifier: .gregorian)

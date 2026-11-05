@@ -11,7 +11,6 @@ struct SRSOverviewView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.appTour) private var tour
     @State private var viewModel: SRSOverviewViewModel
-    @State private var isHelpExpanded = false
     
     init(container: AppContainer) {
         _viewModel = State(initialValue: SRSOverviewViewModel(
@@ -22,30 +21,52 @@ struct SRSOverviewView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    statusCard
-                    streakCard
-                    if tour == nil { infoCard }
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        streakCard
+                        statusCard
+                    }
+                    .padding()
                 }
-                .padding()
-                .padding(.bottom, tour == nil ? 100 : 0)
+                .refreshable { viewModel.load() }
+
+                if let overview = viewModel.overview, overview.dueToday > 0 {
+                    startReviewButton
+                        .tourHighlight(tour?.step == .reviews, cornerRadius: 14)
+                        .disabled(tour.map { $0.step != .reviews } ?? false)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .padding(.bottom, 16)
+                }
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("srs_section_title".localized())
             .navigationBarTitleDisplayMode(.inline)
-            .refreshable {
-                viewModel.load()
-            }
             .task { viewModel.load() }
             .onAppear { viewModel.load() }
-            .onChange(of: viewModel.hasSRSExperience, initial: true) { _, hasExperience in
-                guard let hasExperience else { return }
-                isHelpExpanded = !hasExperience
-            }
         }
     }
     
+    private var startReviewButton: some View {
+        NavigationLink {
+            SRSView(container: container)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "play.fill")
+                    .font(.body)
+                Text("srs_overview_start".localized())
+                    .font(.bodyCustom.weight(.semibold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.accent)
+            .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Streak
     
     private var streakCard: some View {
@@ -144,25 +165,6 @@ struct SRSOverviewView: View {
                 }
             }
             
-            NavigationLink {
-                SRSView(container: container)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
-                        .font(.body)
-                    Text("srs_overview_start".localized())
-                        .font(.bodyCustom.weight(.semibold))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.accent)
-                .cornerRadius(14)
-            }
-            .buttonStyle(.plain)
-            .tourHighlight(tour?.step == .reviews, cornerRadius: 14)
-            .disabled(tour.map { $0.step != .reviews } ?? false)
-            
             if let nextDate = overview.nextReviewDate, overview.nextReviewCount > 0 {
                 Divider().background(Color.stroke)
                 
@@ -238,31 +240,5 @@ struct SRSOverviewView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(Capsule().fill(color.opacity(0.15)))
-    }
-    
-    // MARK: - Info
-    
-    private var infoCard: some View {
-        DisclosureGroup(isExpanded: $isHelpExpanded) {
-            Text("srs_overview_how_it_works_desc".localized())
-                .font(.captionCustom)
-                .foregroundColor(.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 8)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundColor(.accent)
-                Text("srs_overview_how_it_works".localized())
-                    .font(.bodyCustom.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-            }
-        }
-        .tint(Color.accent)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.cardBackground)
-        .cornerRadius(20)
-        .shadow(color: .shadowColor, radius: 8, x: 0, y: 2)
     }
 }

@@ -22,7 +22,7 @@
 "onboarding_2_desc" = "Create your own cards, organize them into groups, and swipe to learn. Don't forget to add descriptions for complex words!";
 
 "onboarding_3_title" = "Smart Repetition (SRS)";
-"onboarding_3_desc" = "Our SM-2 algorithm shows words right before you forget them. Clear your daily SRS queue to build a streak!";
+"onboarding_3_desc" = "Our SM-2 algorithm shows words right before you forget them. Review all your cards for the day to build a streak!";
 
 "onboarding_4_title" = "AI & Widgets";
 "onboarding_4_desc" = "Import hundreds of cards in seconds using JSON and AI prompts. Also, add our widget to your Home Screen to stay on track.";
@@ -35,7 +35,7 @@
 
 /* ============ NOTIFICATIONS ============ */
 "notification_srs_title" = "Time to Review!";
-"notification_srs_body" = "You have SRS cards waiting. Keep your streak alive and clear them now!";
+"notification_srs_body" = "You have cards to review. Review them to keep your streak going!";
 
 /* ============ TAB BAR ============ */
 "tab_cards" = "Cards";
@@ -224,12 +224,10 @@
 "srs_overview_all_caught_up_desc" = "Come back when new cards are ready for review";
 "srs_overview_next_review" = "Next review";
 "srs_overview_cards" = "Cards";
-"srs_overview_how_it_works" = "How it works";
-"srs_overview_how_it_works_desc" = "Due cards come first, followed by the oldest new words within the remaining daily limit. A new card uses the limit on its first answer. Study days follow your local date; days without assignments count toward the SRS streak.";
 "srs_overview_tomorrow" = "Tomorrow";
 "srs_overview_next_short" = "Next: %@";
 "srs_streak_label" = "Review streak";
-"srs_streak_empty" = "Clear SRS to start";
+"srs_streak_empty" = "Review all of today's cards";
 "srs_streak_keep_it_up" = "Review today to continue";
 
 /* ============ EMPTY GROUP ============ */
@@ -294,8 +292,6 @@
 "about" = "About";
 "version" = "Version";
 "developer" = "Feedback:";
-"release_notes" = "Release Notes";
-"release_notes_description" = "What's new in each version";
 
 /* ============= BACKUP ============= */
 "backup_export" = "Export Backup";
@@ -411,163 +407,6 @@
 "achievement_group_10" = "Architect";
 "achievement_group_10_desc" = "Created 10 groups";
 
-/* ============ RELEASE NOTES - HEADERS ============ */
-"current_version" = "Current version";
-"previous_version" = "Previous version";
-"initial_release" = "Initial release";
-"version_2_10_0" = "Version 2.10.0";
-"version_2_9_0" = "Version 2.9.0";
-"version_2_8_0" = "Version 2.8.0";
-"version_2_7_0" = "Version 2.7.0";
-"version_2_6_0" = "Version 2.6.0";
-"version_2_5_3" = "Version 2.5.3";
-"version_2_5_2" = "Version 2.5.2";
-"version_2_5_1" = "Version 2.5.1";
-"version_2_5_0" = "Version 2.5.0";
-"version_2_4_0" = "Version 2.4.0";
-"version_2_3_0" = "Version 2.3.0";
-"version_2_2_0" = "Version 2.2.0";
-"version_2_1_1" = "Version 2.1.1";
-"version_2_1_0" = "Version 2.1.0";
-"version_2_0_1" = "Version 2.0.1";
-"version_2_0_0" = "Version 2.0.0";
-"version_1_1_1" = "Version 1.1.1";
-"version_1_1_0" = "Version 1.1.0";
-"version_1_0_7" = "Version 1.0.7";
-"version_1_0_6" = "Version 1.0.6";
-"version_1_0_5" = "Version 1.0.5";
-"version_1_0_4" = "Version 1.0.4";
-"version_1_0_3" = "Version 1.0.3";
-"version_1_0_2" = "Version 1.0.2";
-"version_1_0_1" = "Version 1.0.1";
-"version_1_0_0" = "Version 1.0.0";
-
-/* ============ RELEASE NOTES - CONTENT ============ */
-"release_notes_2_10_0_1" = "Protected card saving after a group loading error: retry loading without losing entered text";
-"release_notes_2_10_0_2" = "Added an import preview, data validation and merging of duplicate groups and cards; failed imports no longer leave partially imported data";
-"release_notes_2_10_0_3" = "Fixed the daily new-word limit, SRS queue order and session recovery; the first answer counts toward the limit even when incorrect";
-"release_notes_2_10_0_4" = "Fixed calendar-based review scheduling and the next-session forecast across local dates and time zone changes";
-"release_notes_2_10_0_5" = "Fixed explanation display on the back of SRS cards";
-"release_notes_2_10_0_6" = "Fixed daily progress, the activity calendar and streaks: goal changes apply today, previous days stay unchanged, and days with no SRS tasks count as completed";
-"release_notes_2_10_0_7" = "Clarified correct-answer counter labels and fixed achievement awards and sequential display of multiple rewards";
-"release_notes_2_10_0_8" = "The widget updates after data is saved and indicates stale or unavailable data; fixed opening SRS from the widget while the app is running, closed or completing first-time setup";
-"release_notes_2_10_0_9" = "Added optional reminders in Settings with a time picker and permission status; notification permission is requested only after a user action";
-"release_notes_2_10_0_10" = "Reminders are recalculated from the current SRS queue; the widget follows the selected app language and theme";
-
-"release_notes_2_9_0_1" = "Added data backup and restore via the Files app";
-"release_notes_2_9_0_2" = "Added reverse card mode (learning from translation to word)";
-"release_notes_2_9_0_3" = "Added local notifications to remind you about due SRS cards";
-"release_notes_2_9_0_4" = "App now automatically selects English or Russian based on system language";
-"release_notes_2_9_0_5" = "Improved SRS session results screen with detailed statistics and next review info";
-
-"release_notes_2_8_0_1" = "Added reverse card mode (learning from translation to original word)";
-"release_notes_2_8_0_2" = "Added local notifications to remind you about due SRS cards";
-"release_notes_2_8_0_3" = "The app now automatically selects English or Russian based on your system language on first launch";
-
-"release_notes_2_7_0_1" = "Added a new onboarding flow with personalization (name input)";
-"release_notes_2_7_0_2" = "Added a greeting screen on app launch based on time of day";
-"release_notes_2_7_0_3" = "Implemented data migration from previous versions of the app";
-
-"release_notes_2_6_0_1" = "Added the ability to import groups and cards from JSON";
-"release_notes_2_6_0_2" = "Added a built-in AI prompt and JSON template to quickly generate cards using neural networks";
-"release_notes_2_6_0_3" = "Improved navigation on the Groups screen (moved creation and import to the top menu)";
-
-"release_notes_2_5_3_1" = "Improved review streak counter logic (gray when pending, orange when completed)";
-"release_notes_2_5_3_2" = "Minor UI improvements";
-
-"release_notes_2_5_2_1" = "Fixed widget background to match the app theme";
-"release_notes_2_5_2_2" = "Improved widget color scheme for active and completed states";
-
-"release_notes_2_5_1_1" = "Fixed widget data synchronization issue";
-"release_notes_2_5_1_2" = "Improved widget layout and localization";
-
-"release_notes_2_5_0_1" = "Added a Home Screen widget showing your review streak and due cards";
-"release_notes_2_5_0_2" = "Minor fixes and performance improvements";
-
-"release_notes_2_4_0_1" = "SRS session moved to its own screen";
-"release_notes_2_4_0_2" = "Added a separate review streak counter";
-"release_notes_2_4_0_3" = "Fixed Russian localization of the review screen";
-
-"release_notes_2_3_0_1" = "Spaced repetition is now a separate tab with its own screen";
-"release_notes_2_3_0_2" = "Review screen shows how many cards are due today and when the next review is";
-"release_notes_2_3_0_3" = "Updated tab bar layout";
-
-"release_notes_2_2_0_1" = "Added word pronunciation — tap the speaker icon on the card to hear it";
-
-"release_notes_2_1_1_1" = "Improved card description input field — now multi-line with scrolling";
-"release_notes_2_1_1_2" = "Fixed English title above description input";
-"release_notes_2_1_1_3" = "Fixed storage size calculation";
-"release_notes_2_1_1_4" = "Fixed errors when resetting statistics";
-
-"release_notes_2_1_0_1" = "Added card descriptions (examples or hints)";
-"release_notes_2_1_0_2" = "Description is shown on the card during practice";
-
-"release_notes_2_0_1_1" = "Pull-to-refresh now works on all main screens";
-"release_notes_2_0_1_2" = "Fixed tab bar layout in Russian";
-
-"release_notes_2_0_0_1" = "Added spaced repetition (SM-2) for effective learning";
-"release_notes_2_0_0_2" = "Completely rewritten architecture";
-
-"release_notes_1_1_1_1" = "Fixed the behavior of long text on the card";
-"release_notes_1_1_1_2" = "Fixed the appearance of the activity series counter";
-
-"release_notes_1_1_0_1" = "Completely redesigned achievements system";
-"release_notes_1_1_0_2" = "Number and variety of achievements significantly increased";
-"release_notes_1_1_0_3" = "Notification pops up when achieving an achievement";
-"release_notes_1_1_0_4" = "Added card search in group add menu";
-"release_notes_1_1_0_5" = "Now you can add multiple existing cards to a group at once";
-"release_notes_1_1_0_6" = "Fixed scroll on the screen with all cards";
-
-"release_notes_1_0_7_1" = "Added ability to select groups on card editing screen";
-"release_notes_1_0_7_2" = "Ability to select an existing card when adding a new one";
-"release_notes_1_0_7_3" = "Now an active day in the calendar is considered a day when the daily goal is achieved";
-"release_notes_1_0_7_4" = "Fixed consecutive active days counter";
-
-"release_notes_1_0_6_1" = "Fixed theme switching, now applies instantly to all elements";
-"release_notes_1_0_6_2" = "Added localization of the list of changes";
-"release_notes_1_0_6_3" = "Added localization of color theme names";
-"release_notes_1_0_6_4" = "System group names are now translated when you change the language";
-"release_notes_1_0_6_5" = "Added app icon";
-
-"release_notes_1_0_5_1" = "System group no longer appears when creating a new card";
-"release_notes_1_0_5_2" = "Added information about the smartest, most genius, talented, and most importantly - modest developer";
-"release_notes_1_0_5_3" = "Improved visual of correct/wrong answers counter";
-"release_notes_1_0_5_4" = "Fixed navigation bar";
-
-"release_notes_1_0_4_1" = "Changed group name now applies immediately";
-"release_notes_1_0_4_2" = "Fixed card duplication when adding through the first group";
-"release_notes_1_0_4_3" = "Fixed activity streak counter logic";
-
-"release_notes_1_0_3_1" = "Added separate screen for empty group";
-"release_notes_1_0_3_2" = "Fixed group name editing";
-
-"release_notes_1_0_2_1" = "Fixed localization during card learning";
-"release_notes_1_0_2_2" = "Fixed card behavior during learning";
-"release_notes_1_0_2_3" = "Fixed navigation link color";
-"release_notes_1_0_2_4" = "Removed duplicate exit button in settings menu";
-
-"release_notes_1_0_1_1" = "Added release notes for new versions";
-"release_notes_1_0_1_2" = "Fixed: test cards and groups were not deleted when clearing all data";
-"release_notes_1_0_1_3" = "Visually improved card swipe for editing";
-"release_notes_1_0_1_4" = "System groups can no longer be deleted or edited for safety";
-
-"release_notes_1_0_0_1" = "Ability to add your own cards";
-"release_notes_1_0_0_2" = "Ability to add your own groups";
-"release_notes_1_0_0_3" = "Ability to edit and delete cards";
-"release_notes_1_0_0_4" = "Ability to edit and delete groups";
-"release_notes_1_0_0_5" = "Ability to select a group for learning";
-"release_notes_1_0_0_6" = "Ability to learn group cards";
-"release_notes_1_0_0_7" = "Ability to see group learning success rate";
-"release_notes_1_0_0_8" = "Ability to repeat only mistakes or restart the group completely";
-"release_notes_1_0_0_9" = "Ability to set a daily goal";
-"release_notes_1_0_0_10" = "Ability to track active days";
-"release_notes_1_0_0_11" = "Added achievements";
-"release_notes_1_0_0_12" = "Data persistence to permanent storage";
-"release_notes_1_0_0_13" = "Ability to choose from 4 color themes";
-"release_notes_1_0_0_14" = "Ability to choose language: English/Русский";
-"release_notes_1_0_0_15" = "Ability to reset all statistics";
-"release_notes_1_0_0_16" = "Ability to delete all data";
-
 /* Transaction safety and recovery */
 "persistence_pending_changes" = "There are unsaved changes. Finish the current action and try again.";
 "backup_invalid_data" = "The backup is damaged or contains inconsistent data. Your current database was not changed.";
@@ -658,9 +497,7 @@
 "speech_missing_preference" = "Your previously selected voice is unavailable. Another voice in the same language is used temporarily.";
 "speech_download_help" = "Check and download additional voices in iOS Settings: Accessibility → Spoken Content (or Read & Speak) → Voices. Return to the app to refresh this list. iOS does not offer voices for every language. Only voices accessible to this app on this device are shown.";
 
-"progress_streak" = "Review streak";
 
-"progress_streak_hint" = "Days without missed reviews. Days with no assignments keep your streak.";
 
 "progress_languages" = "My languages";
 
@@ -834,6 +671,26 @@
 "profile_avatar_neck_bandana" = "Checked bandana";
 "profile_avatar_neck_bowTie" = "Bow tie";
 "profile_avatar_neck_collar" = "Collar with a tag";
+"profile_avatar_hat_cap" = "Baseball cap";
+"profile_avatar_hat_graduationCap" = "Graduation cap";
+"profile_avatar_hat_chefHat" = "Chef hat";
+"profile_avatar_neck_sailorScarf" = "Sailor scarf";
+"profile_avatar_neck_stripedTie" = "Striped tie";
+"profile_avatar_neck_buttonCollar" = "Button collar";
+"profile_avatar_glasses" = "Glasses";
+"profile_avatar_glasses_none" = "No glasses";
+"profile_avatar_glasses_round" = "Round glasses";
+"profile_avatar_glasses_square" = "Rectangular glasses";
+"profile_avatar_glasses_catEye" = "Cat-eye sunglasses";
+"profile_avatar_ear" = "Ear accessories";
+"profile_avatar_ear_none" = "No ear accessory";
+"profile_avatar_ear_star" = "Star clip";
+"profile_avatar_ear_bow" = "Bow clip";
+"profile_avatar_ear_flower" = "Flower clip";
+"profile_avatar_headphones" = "Headphones";
+"profile_avatar_headphones_none" = "No headphones";
+"profile_avatar_headphones_studio" = "Studio headphones";
+"profile_avatar_headphones_retro" = "Retro headphones";
 
 // App tour
 "tour_lexi" = "Lexi";

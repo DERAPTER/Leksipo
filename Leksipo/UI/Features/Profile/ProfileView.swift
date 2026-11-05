@@ -8,6 +8,9 @@ struct ProfileView: View {
     @AppStorage("profileAvatarBackground") private var avatarBackground = LexiAvatarBackground.sand
     @AppStorage("profileAvatarHeadwear") private var avatarHeadwear = LexiAvatarHeadwear.none
     @AppStorage("profileAvatarNeckwear") private var avatarNeckwear = LexiAvatarNeckwear.none
+    @AppStorage("profileAvatarGlasses") private var avatarGlasses = LexiAvatarGlasses.none
+    @AppStorage("profileAvatarEarAccessory") private var avatarEarAccessory = LexiAvatarEarAccessory.none
+    @AppStorage("profileAvatarHeadphones") private var avatarHeadphones = LexiAvatarHeadphones.none
     @State private var viewModel: ProfileViewModel
     @State private var showCustomization = false
     private let onStartTour: (() -> Void)?
@@ -24,7 +27,6 @@ struct ProfileView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     header
-                    streakSection
                     if let error = viewModel.errorMessage {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(error).foregroundStyle(.red)
@@ -70,13 +72,17 @@ struct ProfileView: View {
                     avatarBackground = appearance.background
                     avatarHeadwear = appearance.headwear
                     avatarNeckwear = appearance.neckwear
+                    avatarGlasses = appearance.glasses
+                    avatarEarAccessory = appearance.earAccessory
+                    avatarHeadphones = appearance.headphones
                 }
             }
         }
     }
 
     private var avatarAppearance: LexiAvatarAppearance {
-        LexiAvatarAppearance(background: avatarBackground, headwear: avatarHeadwear, neckwear: avatarNeckwear)
+        LexiAvatarAppearance(background: avatarBackground, headwear: avatarHeadwear, neckwear: avatarNeckwear,
+                             glasses: avatarGlasses, earAccessory: avatarEarAccessory, headphones: avatarHeadphones)
     }
 
     private var header: some View {
@@ -107,22 +113,6 @@ struct ProfileView: View {
             .tourHighlight(tour?.step == .profile, cornerRadius: 22)
             .padding(12)
         }
-    }
-
-    private var streakSection: some View {
-        HStack(spacing: 16) {
-            MascotView(pose: viewModel.srsStreak > 0 ? .success : .support).frame(width: 72, height: 80)
-            VStack(alignment: .leading, spacing: 6) {
-                Label("progress_streak".localized(), systemImage: "flame.fill")
-                    .font(.bodyCustom.weight(.semibold)).foregroundStyle(Color.accent)
-                Text(viewModel.hasLoaded ? "\(viewModel.srsStreak)" : "—").font(.system(size: 36, weight: .bold, design: .rounded))
-                Text("progress_streak_hint".localized()).font(.captionCustom).foregroundStyle(Color.textSecondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(Color.textPrimary)
-        .padding()
-        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 22))
     }
 
     private var languagesSection: some View {
@@ -197,8 +187,10 @@ struct ProfileView: View {
                         RoundedRectangle(cornerRadius: 5)
                             .fill(day.correctAnswers > 0 ? Color.accent : Color.stroke.opacity(0.4))
                             .frame(height: max(4, 72 * Double(day.correctAnswers) / Double(max(1, viewModel.week.map(\.correctAnswers).max() ?? 1))))
-                        Text(day.date.formatted(.dateTime.weekday(.narrow).locale(LanguageManager.shared.currentLanguage.locale)))
+                        Text(day.date.formatted(.dateTime.weekday(.abbreviated).locale(LanguageManager.shared.currentLanguage.locale)))
                             .font(.captionCustom).foregroundStyle(Color.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                     .frame(maxWidth: .infinity)
                     .accessibilityElement(children: .ignore)

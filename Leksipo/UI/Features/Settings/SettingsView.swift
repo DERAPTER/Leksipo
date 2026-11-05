@@ -42,9 +42,6 @@ struct SettingsView: View {
                 viewModel.loadStudyLanguages()
             }
             .onChange(of: srsNewCardsLimit) { _, _ in container.srsIntegration?.refresh() }
-            .sheet(isPresented: $viewModel.showReleaseNotesSheet) {
-                ReleaseNotesSheet()
-            }
             .alert("error_title".localized(), isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil } }
@@ -309,15 +306,7 @@ struct SettingsView: View {
                 title: "developer".localized(),
                 value: "tg: @DERAPTER"
             )
-            
-            SettingsRow(
-                icon: "clock.arrow.circlepath",
-                title: "release_notes".localized(),
-                description: "release_notes_description".localized(),
-                color: .accent
-            ) {
-                viewModel.showReleaseNotesSheet = true
-            }
+
         }
     }
     
@@ -335,7 +324,7 @@ struct SettingsView: View {
     }
     
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
 }
 

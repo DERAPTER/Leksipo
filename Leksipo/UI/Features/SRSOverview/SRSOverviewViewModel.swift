@@ -15,7 +15,6 @@ final class SRSOverviewViewModel {
     private(set) var srsStreak: Int = 0
     private(set) var isSRSClearedToday: Bool = false
     private(set) var errorMessage: String?
-    private(set) var hasSRSExperience: Bool?
     
     private let cardRepository: CardRepository
     private let statsRepository: StatsRepository
@@ -49,21 +48,9 @@ final class SRSOverviewViewModel {
             // Проверяем, разгребен ли SRS сегодня
             let todayStat = try statsRepository.activity(for: now())
             isSRSClearedToday = todayStat?.srsCleared ?? false
-            hasSRSExperience = try hasRecordedSRSReviews()
         } catch {
             errorMessage = error.localizedDescription
         }
-    }
-    
-    // MARK: - Help
-
-    private func hasRecordedSRSReviews() throws -> Bool {
-        let settings = try statsRepository.settings()
-        if (settings.srsMilestonesRaw ?? 0) & SRSMilestone.firstReview.mask != 0 { return true }
-        // Старые базы могут ещё не содержать событие первой SRS-награды.
-        if try cardRepository.fetchAll().contains(where: { $0.lastReviewDate != nil }) { return true }
-        // История остаётся подтверждением занятия и после удаления карточек.
-        return try statsRepository.activityHistory(monthsBack: -1).contains { $0.srsReviewCount > 0 }
     }
     
     // MARK: - Date formatting

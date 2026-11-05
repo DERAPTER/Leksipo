@@ -73,7 +73,12 @@ struct RootView: View {
                 case .solveCards:
                     SolveListView(container: container)
                 case .srsReview:
-                    SRSOverviewView(container: container)
+                    VStack(spacing: 0) {
+                        SRSOverviewView(container: container)
+                        if tabBarVisibility.isVisible {
+                            tabBar
+                        }
+                    }
                 case .profile:
                     ProfileView(container: container, onStartTour: { showTour = true })
                 }
@@ -81,11 +86,8 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .id("\(refreshTrigger)-\(container.dataRevision)")
             
-            if tabBarVisibility.isVisible {
-                CustomTabBar(tabs: tabs, selectedTab: $selectedTab)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 10)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            if tabBarVisibility.isVisible, selectedTab.screen != .srsReview {
+                tabBar
             }
         }
         .ignoresSafeArea(.container, edges: .bottom)
@@ -103,6 +105,13 @@ struct RootView: View {
         }
     }
     
+    private var tabBar: some View {
+        CustomTabBar(tabs: tabs, selectedTab: $selectedTab)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 10)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
     private func applyPendingRoute() {
         guard !showTour, hasCompletedOnboarding, let route = router.pendingRoute else { return }
         switch route {
