@@ -14,8 +14,10 @@ import SwiftUI
 
 struct AddCardSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTour) private var tour
     
     @State private var viewModel: AddCardViewModel
+    @State private var didPrepareExample = false
     private let onComplete: () -> Void
     
     init(
@@ -37,7 +39,7 @@ struct AddCardSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                modePicker
+                if tour == nil { modePicker }
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -55,10 +57,29 @@ struct AddCardSheet: View {
                 }
             }
             .background(Color.appBackground.ignoresSafeArea())
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let tour {
+                    VStack(spacing: 8) {
+                        TourSpeech(message: "tour_card_form".localized(), onSkip: { tour.requestExit() })
+                        saveCardButton
+                            .buttonStyle(.borderedProminent)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color.appBackground)
+                }
+            }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent }
-            .onAppear { viewModel.onAppear() }
+            .onAppear {
+                viewModel.onAppear()
+                if tour != nil, !didPrepareExample {
+                    viewModel.originWord = "hello"
+                    viewModel.translatedWord = "привет"
+                    didPrepareExample = true
+                }
+            }
             .alert("study_copy_title".localized(), isPresented: $viewModel.showLanguageCopyConfirmation) {
                 Button("cancel".localized(), role: .cancel) { }
                 Button("study_create_copy".localized()) { viewModel.prepareLanguageCopy() }
@@ -88,6 +109,16 @@ struct AddCardSheet: View {
     }
     
     // MARK: - Subviews
+
+    private var saveCardButton: some View {
+        Button("save_card".localized()) {
+            if viewModel.saveNewCard() {
+                onComplete()
+                dismiss()
+            }
+        }
+        .disabled(!viewModel.canSaveNewCard)
+    }
     
     private var modePicker: some View {
         Picker("add_card_mode".localized(), selection: $viewModel.mode) {
@@ -240,14 +271,9 @@ struct AddCardSheet: View {
         ToolbarItem(placement: .confirmationAction) {
             switch viewModel.mode {
             case .createNew:
-                Button("save_card".localized()) {
-                    if viewModel.saveNewCard() {
-                        onComplete()
-                        dismiss()
-                    }
+                if tour == nil {
+                    saveCardButton.foregroundColor(viewModel.canSaveNewCard ? .accent : .gray)
                 }
-                .disabled(!viewModel.canSaveNewCard)
-                .foregroundColor(viewModel.canSaveNewCard ? .accent : .gray)
                 
             case .chooseExisting:
                 Button("add_selected".localized()) {

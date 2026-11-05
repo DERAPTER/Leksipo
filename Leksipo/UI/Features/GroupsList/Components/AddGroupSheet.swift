@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AddGroupSheet: View {
     @Environment(AppContainer.self) private var container
+    @Environment(\.appTour) private var tour
     @State private var languagePair = StudyLanguagePair.legacy
     @State private var didLoadLanguages = false
     @Bindable var viewModel: GroupsListViewModel
@@ -26,7 +27,13 @@ struct AddGroupSheet: View {
                 
                     inputField
 
-                    StudyLanguagePairPicker(pair: $languagePair).padding(.horizontal)
+                    if tour == nil {
+                        StudyLanguagePairPicker(pair: $languagePair).padding(.horizontal)
+                    } else {
+                        Text(languagePair.displayName)
+                            .font(.captionCustom)
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 
                     if let errorMessage {
                         Text(errorMessage)
@@ -41,6 +48,14 @@ struct AddGroupSheet: View {
                 }
             }
             .background(Color.appBackground.ignoresSafeArea())
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let tour {
+                    TourSpeech(message: "tour_group_form".localized(), onSkip: { tour.requestExit() })
+                        .padding(.horizontal)
+                        .padding(.vertical, 8)
+                        .background(Color.appBackground)
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -50,10 +65,11 @@ struct AddGroupSheet: View {
                 }
             }
             .onAppear {
-                isFocused = true
+                if tour == nil { isFocused = true }
                 guard !didLoadLanguages else { return }
                 do {
                     languagePair = try container.statsRepository.settings().languagePair
+                    if tour != nil { groupName = "tour_example_group".localized() }
                     didLoadLanguages = true
                 } catch { errorMessage = error.localizedDescription }
             }
@@ -106,6 +122,7 @@ struct AddGroupSheet: View {
                 .cornerRadius(16)
         }
         .disabled(!didLoadLanguages || groupName.trimmingCharacters(in: .whitespaces).isEmpty)
+        .tourHighlight(tour != nil)
         .padding(.horizontal)
         .padding(.bottom, 30)
     }
@@ -115,7 +132,8 @@ struct AddGroupSheet: View {
         guard !trimmed.isEmpty else { return }
         
         do {
-            try viewModel.createGroup(name: trimmed, languagePair: languagePair)
+            let group = try viewModel.createGroup(name: trimmed, languagePair: languagePair)
+            tour?.createdGroup(group.id)
             isPresented = false
         } catch {
             errorMessage = error.localizedDescription

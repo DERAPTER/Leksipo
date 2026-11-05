@@ -10,6 +10,7 @@ import SwiftUI
 struct CustomTabBar: View {
     let tabs: [TabItem]
     @Binding var selectedTab: TabItem
+    var guidedTab: AppScreen? = nil
     
     @Namespace private var selectionNamespace
     
@@ -63,6 +64,8 @@ struct CustomTabBar: View {
             )
         }
         .buttonStyle(.plain)
+        .tourHighlight(guidedTab == tab.screen, cornerRadius: 24)
+        .disabled(guidedTab.map { $0 != tab.screen } ?? false)
     }
 }
 

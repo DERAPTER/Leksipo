@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct GroupRowView: View {
+    @Environment(\.appTour) private var tour
     let item: GroupDisplayItem
     @Bindable var viewModel: GroupsListViewModel
     
@@ -23,6 +24,11 @@ struct GroupRowView: View {
     private var isExpanded: Bool {
         viewModel.isExpanded(item)
     }
+
+    private var isTourGroup: Bool {
+        guard let tour, let groupID = tour.groupID else { return false }
+        return tour.step == .addCard && item.userGroup?.id == groupID
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -35,6 +41,7 @@ struct GroupRowView: View {
                 onDelete: handleDelete,
                 swipeState: $swipeState
             )
+            .tourHighlight(isTourGroup && !isExpanded)
             
             if isExpanded {
                 expandedContent
@@ -131,6 +138,7 @@ struct GroupRowView: View {
             )
         }
         .buttonStyle(.plain)
+        .tourHighlight(isTourGroup)
     }
     
     // MARK: - Handlers

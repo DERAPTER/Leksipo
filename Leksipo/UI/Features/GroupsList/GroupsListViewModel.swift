@@ -131,10 +131,12 @@ final class GroupsListViewModel {
     
     // MARK: - Group mutations
     
-    func createGroup(name: String, languagePair: StudyLanguagePair? = nil) throws {
-        _ = try groupRepository.create(name: name, languagePair: languagePair)
+    @discardableResult
+    func createGroup(name: String, languagePair: StudyLanguagePair? = nil) throws -> CardGroup {
+        let group = try groupRepository.create(name: name, languagePair: languagePair)
         _ = achievementsService.evaluate()
         load()
+        return group
     }
     
     func deleteGroup(_ group: CardGroup) throws {

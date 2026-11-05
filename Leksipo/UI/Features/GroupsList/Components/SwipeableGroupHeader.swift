@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct SwipeableGroupHeader: View {
+    @Environment(\.appTour) private var tour
     let item: GroupDisplayItem
     let cardCount: Int
     let isExpanded: Bool
@@ -114,7 +115,7 @@ struct SwipeableGroupHeader: View {
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onChanged { value in
-                guard !item.isSystem else { return }
+                guard !item.isSystem, tour == nil else { return }
                 let translation = value.translation.width
                 if translation < -60, swipeState == .none {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -123,7 +124,7 @@ struct SwipeableGroupHeader: View {
                 }
             }
             .onEnded { value in
-                guard !item.isSystem else { return }
+                guard !item.isSystem, tour == nil else { return }
                 let translation = value.translation.width
                 let predicted = value.predictedEndTranslation.width
                 

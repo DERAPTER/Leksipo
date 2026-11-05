@@ -9,6 +9,7 @@ import SwiftUI
 
 struct GroupsListView: View {
     @Environment(AppContainer.self) private var container
+    @Environment(\.appTour) private var tour
     @State private var viewModel: GroupsListViewModel
     
     @State private var showAddGroupSheet = false
@@ -40,6 +41,7 @@ struct GroupsListView: View {
                             onEditCard: { cardToEdit = $0 },
                             onAddCard: { addCardToGroup = $0 }
                         )
+                        .disabled(tour != nil && (tour?.step != .addCard || item.userGroup?.id != tour?.groupID))
                         .padding(.horizontal)
                     }
                 }
@@ -58,16 +60,22 @@ struct GroupsListView: View {
                             Label("add_new_group".localized(), systemImage: "folder.badge.plus")
                         }
                         
-                        Button {
-                            showImportSheet = true
-                        } label: {
-                            Label("import_groups".localized(), systemImage: "square.and.arrow.down")
+                        if tour == nil {
+                            Button {
+                                showImportSheet = true
+                            } label: {
+                                Label("import_groups".localized(), systemImage: "square.and.arrow.down")
+                            }
                         }
                     } label: {
                         Image(systemName: "plus")
                             .font(.title3.weight(.semibold))
                             .foregroundColor(.accent)
+                            .padding(tour?.step == .createGroup ? 6 : 0)
+                            .tourHighlight(tour?.step == .createGroup, cornerRadius: 12)
                     }
+                    .accessibilityLabel("tour_add_menu".localized())
+                    .disabled(tour != nil && tour?.step != .createGroup)
                 }
             }
             .task { viewModel.load() }
@@ -99,7 +107,10 @@ struct GroupsListView: View {
                     cardRepository: container.cardRepository,
                     groupRepository: container.groupRepository,
                     achievementsService: container.achievementsService,
-                    onComplete: { viewModel.load() }
+                    onComplete: {
+                        viewModel.load()
+                        tour?.advance(from: .addCard, to: .practiceTab)
+                    }
                 )
             }
             .alert("delete_group_confirmation".localized(), isPresented: $showDeleteGroupAlert) {

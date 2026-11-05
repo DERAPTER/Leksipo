@@ -10,6 +10,7 @@ import SwiftUI
 struct SRSView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(TabBarVisibility.self) private var tabBarVisibility
+    @Environment(\.appTour) private var tour
     
     @AppStorage("isReverseCardMode") private var isReverseMode: Bool = false
     
@@ -34,13 +35,15 @@ struct SRSView: View {
         .navigationTitle("srs_review_title".localized())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isReverseMode.toggle()
-                    HapticService.shared.lightImpact()
-                } label: {
-                    Image(systemName: "arrow.left.arrow.right")
-                        .foregroundColor(isReverseMode ? .accent : .textSecondary)
+            if tour == nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isReverseMode.toggle()
+                        HapticService.shared.lightImpact()
+                    } label: {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .foregroundColor(isReverseMode ? .accent : .textSecondary)
+                    }
                 }
             }
         }
@@ -53,12 +56,21 @@ struct SRSView: View {
         .onAppear {
             tabBarVisibility.isVisible = false
             viewModel.onAppear()
+            tour?.advance(from: .reviews, to: .reviewFlip)
+        }
+        .onChange(of: viewModel.isCardFlipped) { _, isFlipped in
+            tour?.reviewCardChanged(isFlipped: isFlipped)
+        }
+        .onChange(of: viewModel.state) { _, state in
+            if state == .completed { tour?.completedReview() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
             viewModel.onAppear()
         }
         .onDisappear {
             tabBarVisibility.isVisible = true
+            if viewModel.state == .completed { tour?.completedReview() }
+            tour?.leaveReview()
             PronunciationService.shared.stop()
         }
     }
@@ -81,7 +93,13 @@ struct SRSView: View {
             )
             
         case .solving:
-            solvingScreen
+            if tour != nil {
+                GeometryReader { geometry in
+                    solvingScreen(cardHeight: min(480, max(0, geometry.size.height - 198)))
+                }
+            } else {
+                solvingScreen()
+            }
         }
     }
     
@@ -107,7 +125,7 @@ struct SRSView: View {
     
     // MARK: - Solving screen
     
-    private var solvingScreen: some View {
+    private func solvingScreen(cardHeight: CGFloat = 480) -> some View {
         VStack {
             Text("\(viewModel.currentProgress)/\(viewModel.totalProgress)")
                 .font(.titleCustom)
@@ -116,7 +134,7 @@ struct SRSView: View {
             
             Spacer()
             
-            cardArea
+            cardArea(height: cardHeight)
             
             Spacer()
             
@@ -126,16 +144,18 @@ struct SRSView: View {
     }
     
     @ViewBuilder
-    private var cardArea: some View {
+    private func cardArea(height: CGFloat) -> some View {
         if let card = viewModel.currentCard {
             SRSCardView(
                 card: card,
                 isFlipped: $viewModel.isCardFlipped,
-                isReversed: isReverseMode,
-                onToggleFavourite: { viewModel.toggleFavouriteCurrentCard() }
+                isReversed: tour == nil && isReverseMode,
+                onToggleFavourite: { viewModel.toggleFavouriteCurrentCard() },
+                cardHeight: height
             )
+            .tourHighlight(tour?.step == .reviewFlip, cornerRadius: 30)
         } else {
-            Color.clear.frame(width: 320, height: 480)
+            Color.clear.frame(width: 320, height: height)
         }
     }
     

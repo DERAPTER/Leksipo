@@ -19,6 +19,7 @@ struct RootView: View {
     @State private var refreshTrigger = false
     @State private var tabBarVisibility = TabBarVisibility()
     @State private var incomingGroup: IncomingGroup?
+    @State private var showTour = false
 
     private struct IncomingGroup: Identifiable {
         let id = UUID()
@@ -28,27 +29,27 @@ struct RootView: View {
     private var tabs: [TabItem] { TabItem.all }
     
     var body: some View {
-        ZStack {
-            if !hasCompletedOnboarding {
-                OnboardingView {
-                    withAnimation {
-                        hasCompletedOnboarding = true
-                    }
-                }
-                .transition(.opacity)
-            } else {
-                mainAppContent
-            }
-        }
+        mainAppContent
         .environment(tabBarVisibility)
         .preferredColorScheme(themeManager.colorScheme)
         .tint(themeManager.colors.accent)
         .onAppear {
             themeManager.applyNavigationBarAppearance()
+            if !hasCompletedOnboarding { showTour = true }
             applyPendingRoute()
         }
         .onChange(of: router.pendingRoute) { _, _ in applyPendingRoute() }
-        .onChange(of: hasCompletedOnboarding) { _, _ in applyPendingRoute() }
+        .fullScreenCover(isPresented: $showTour, onDismiss: { applyPendingRoute() }) {
+            AppTourView(destination: container, introduce: !hasCompletedOnboarding) { saved in
+                hasCompletedOnboarding = true
+                if saved {
+                    selectedTab = TabItem(screen: .cardsGroups)
+                    refreshTrigger.toggle()
+                }
+                showTour = false
+            }
+            .preferredColorScheme(themeManager.colorScheme)
+        }
         .sheet(item: $incomingGroup, onDismiss: { applyPendingRoute() }) { request in
             ImportDataView(container: container, initialFileURL: request.url) {
                 selectedTab = TabItem(screen: .cardsGroups)
@@ -74,7 +75,7 @@ struct RootView: View {
                 case .srsReview:
                     SRSOverviewView(container: container)
                 case .profile:
-                    ProfileView(container: container)
+                    ProfileView(container: container, onStartTour: { showTour = true })
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -103,7 +104,7 @@ struct RootView: View {
     }
     
     private func applyPendingRoute() {
-        guard hasCompletedOnboarding, let route = router.pendingRoute else { return }
+        guard !showTour, hasCompletedOnboarding, let route = router.pendingRoute else { return }
         switch route {
         case .srs: selectedTab = TabItem(screen: .srsReview)
         case .groupImport(let url):

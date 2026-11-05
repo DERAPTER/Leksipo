@@ -3,14 +3,17 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(AppContainer.self) private var container
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.appTour) private var tour
     @AppStorage("userName") private var userName = ""
     @AppStorage("profileAvatarBackground") private var avatarBackground = LexiAvatarBackground.sand
     @AppStorage("profileAvatarHeadwear") private var avatarHeadwear = LexiAvatarHeadwear.none
     @AppStorage("profileAvatarNeckwear") private var avatarNeckwear = LexiAvatarNeckwear.none
     @State private var viewModel: ProfileViewModel
     @State private var showCustomization = false
+    private let onStartTour: (() -> Void)?
 
-    init(container: AppContainer) {
+    init(container: AppContainer, onStartTour: (() -> Void)? = nil) {
+        self.onStartTour = onStartTour
         _viewModel = State(initialValue: ProfileViewModel(statsRepository: container.statsRepository,
             cardRepository: container.cardRepository, groupRepository: container.groupRepository,
             achievementsService: container.achievementsService))
@@ -31,8 +34,12 @@ struct ProfileView: View {
                     if viewModel.hasLoaded {
                         languagesSection
                         weekSection
+                            .tourHighlight(tour?.step == .profile, cornerRadius: 18)
+                            .disabled(tour != nil)
                         attentionSection
+                            .disabled(tour != nil)
                         achievementsSection
+                            .disabled(tour != nil)
                     }
                 }
                 .padding()
@@ -44,9 +51,11 @@ struct ProfileView: View {
             .navigationTitle("profile_title".localized())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink { SettingsView(container: container) } label: { Image(systemName: "gearshape") }
-                        .accessibilityLabel("settings_title".localized())
+                if tour == nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink { SettingsView(container: container, onStartTour: onStartTour) } label: { Image(systemName: "gearshape") }
+                            .accessibilityLabel("settings_title".localized())
+                    }
                 }
             }
             .onAppear { viewModel.load() }
@@ -94,6 +103,8 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("profile_edit".localized())
+            .disabled(tour != nil)
+            .tourHighlight(tour?.step == .profile, cornerRadius: 22)
             .padding(12)
         }
     }

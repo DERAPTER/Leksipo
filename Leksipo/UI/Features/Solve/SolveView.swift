@@ -10,6 +10,7 @@ import SwiftUI
 struct SolveView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(TabBarVisibility.self) private var tabBarVisibility
+    @Environment(\.appTour) private var tour
     
     @AppStorage("isReverseCardMode") private var isReverseMode: Bool = false
     
@@ -40,13 +41,15 @@ struct SolveView: View {
         .navigationTitle(viewModel.groupTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isReverseMode.toggle()
-                    HapticService.shared.lightImpact()
-                } label: {
-                    Image(systemName: "arrow.left.arrow.right")
-                        .foregroundColor(isReverseMode ? .accent : .textSecondary)
+            if tour == nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isReverseMode.toggle()
+                        HapticService.shared.lightImpact()
+                    } label: {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .foregroundColor(isReverseMode ? .accent : .textSecondary)
+                    }
                 }
             }
         }
@@ -59,9 +62,16 @@ struct SolveView: View {
         .onAppear {
             tabBarVisibility.isVisible = false
             viewModel.onAppear()
+            tour?.beginPractice(viewModel.key)
         }
         .onDisappear {
             tabBarVisibility.isVisible = true
+            tour?.leavePractice()
+        }
+        .onChange(of: viewModel.state) { _, state in
+            if state == .completedWithMistakes || state == .completedWithoutMistakes {
+                tour?.advance(from: .answerCard, to: .reviewsTab)
+            }
         }
         .alert(
             "continue_session_question".localized(),
@@ -105,25 +115,35 @@ struct SolveView: View {
             }
             
         case .completedWithoutMistakes, .completedWithMistakes:
-            ResultView(
-                successCount: viewModel.successCount,
-                failCount: viewModel.failCount,
-                progressFraction: viewModel.progressFraction,
-                hasMistakes: viewModel.state == .completedWithMistakes,
-                onRestart: { viewModel.restartFromResult() },
-                onRestartMistakes: viewModel.state == .completedWithMistakes
-                    ? { viewModel.restartMistakesFromResult() }
-                    : nil
-            )
+            if tour != nil {
+                ContentUnavailableView("tour_practice_done".localized(), systemImage: "checkmark.circle")
+            } else {
+                ResultView(
+                    successCount: viewModel.successCount,
+                    failCount: viewModel.failCount,
+                    progressFraction: viewModel.progressFraction,
+                    hasMistakes: viewModel.state == .completedWithMistakes,
+                    onRestart: { viewModel.restartFromResult() },
+                    onRestartMistakes: viewModel.state == .completedWithMistakes
+                        ? { viewModel.restartMistakesFromResult() }
+                        : nil
+                )
+            }
             
         case .solving:
-            swipeSolvingScreen
+            if tour != nil {
+                GeometryReader { geometry in
+                    swipeSolvingScreen(cardHeight: min(480, max(0, geometry.size.height - 124)))
+                }
+            } else {
+                swipeSolvingScreen()
+            }
         }
     }
     
     // MARK: - Swipe mode
     
-    private var swipeSolvingScreen: some View {
+    private func swipeSolvingScreen(cardHeight: CGFloat = 480) -> some View {
         VStack {
             Text("\(viewModel.currentProgress)/\(viewModel.totalProgress)")
                 .font(.titleCustom)
@@ -137,38 +157,46 @@ struct SolveView: View {
             
             Spacer()
             
-            swipeCardArea
+            swipeCardArea(height: cardHeight)
             
             Spacer()
             Spacer()
             Spacer()
             Spacer()
         }
+        .frame(maxHeight: .infinity)
         .padding(.top, 20)
     }
     
     @ViewBuilder
-    private var swipeCardArea: some View {
+    private func swipeCardArea(height: CGFloat) -> some View {
         if let card = viewModel.currentCard {
             SwipeableCardView(
                 card: card,
                 percentageOfMove: viewModel.percentageOfMove,
-                isReversed: isReverseMode,
-                onToggleFavourite: { viewModel.toggleFavouriteCurrentCard() }
+                isReversed: tour == nil && isReverseMode,
+                onToggleFavourite: { viewModel.toggleFavouriteCurrentCard() },
+                cardHeight: height,
+                onFlip: { tour?.advance(from: .flipCard, to: .answerCard) }
             )
+            .tourHighlight(tour?.step == .flipCard, cornerRadius: 30)
             .offset(x: viewModel.offsetOfCardX, y: viewModel.offsetOfCardY)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.offsetOfCardX)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.offsetOfCardY)
             .gesture(swipeGesture)
         } else {
-            Color.clear.frame(width: 320, height: 480)
+            Color.clear.frame(width: 320, height: height)
         }
     }
     
     private var swipeGesture: some Gesture {
         DragGesture()
-            .onChanged { viewModel.onDragChanged($0) }
+            .onChanged {
+                guard tour == nil || tour?.step == .answerCard else { return }
+                viewModel.onDragChanged($0)
+            }
             .onEnded { value in
+                guard tour == nil || tour?.step == .answerCard else { return }
                 let decision = viewModel.onDragEnded(value)
                 handleSwipeDecision(decision)
             }

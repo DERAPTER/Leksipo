@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SRSOverviewView: View {
     @Environment(AppContainer.self) private var container
+    @Environment(\.appTour) private var tour
     @State private var viewModel: SRSOverviewViewModel
     @State private var isHelpExpanded = false
     
@@ -25,10 +26,10 @@ struct SRSOverviewView: View {
                 VStack(spacing: 20) {
                     statusCard
                     streakCard
-                    infoCard
+                    if tour == nil { infoCard }
                 }
                 .padding()
-                .padding(.bottom, 100)
+                .padding(.bottom, tour == nil ? 100 : 0)
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("srs_section_title".localized())
@@ -159,6 +160,8 @@ struct SRSOverviewView: View {
                 .cornerRadius(14)
             }
             .buttonStyle(.plain)
+            .tourHighlight(tour?.step == .reviews, cornerRadius: 14)
+            .disabled(tour.map { $0.step != .reviews } ?? false)
             
             if let nextDate = overview.nextReviewDate, overview.nextReviewCount > 0 {
                 Divider().background(Color.stroke)

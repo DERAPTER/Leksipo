@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SRSResultView: View {
+    @Environment(\.appTour) private var tour
+
     let reviewedCount: Int
     let qualityCounts: [SRSQuality: Int]
     let nextReviewDate: Date?
@@ -21,7 +23,7 @@ struct SRSResultView: View {
     
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+            VStack(spacing: tour == nil ? 24 : 16) {
                 header
                 
                 if reviewedCount > 0 {
@@ -32,12 +34,22 @@ struct SRSResultView: View {
                     nextReviewSection(date: nextDate)
                 }
                 
-                Spacer(minLength: 40)
-                
-                finishButton
+                if tour == nil {
+                    Spacer(minLength: 40)
+                    finishButton
+                        .padding(.bottom, 30)
+                }
             }
             .padding(.horizontal)
             .padding(.top, 20)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if tour != nil {
+                finishButton
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color.appBackground)
+            }
         }
     }
     
@@ -46,7 +58,7 @@ struct SRSResultView: View {
     private var header: some View {
         VStack(spacing: 16) {
             MascotView(pose: .success)
-                .frame(width: 180, height: 150)
+                .frame(width: 180, height: tour == nil ? 150 : 96)
             
             Text("srs_result_title".localized())
                 .font(.largeTitleCustom)
@@ -155,7 +167,6 @@ struct SRSResultView: View {
                 .cornerRadius(16)
         }
         .buttonStyle(.plain)
-        .padding(.bottom, 30)
     }
     
     // MARK: - Helpers

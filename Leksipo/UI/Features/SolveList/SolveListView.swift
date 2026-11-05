@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SolveListView: View {
     @Environment(AppContainer.self) private var container
+    @Environment(\.appTour) private var tour
     @State private var viewModel: SolveListViewModel
     
     private let columns = [
@@ -28,7 +29,7 @@ struct SolveListView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(viewModel.items) { item in
+                    ForEach(visibleItems) { item in
                         NavigationLink {
                             SolveView(
                                 key: item.key,
@@ -39,6 +40,7 @@ struct SolveListView: View {
                             GroupSolveCardView(item: item)
                         }
                         .buttonStyle(.plain)
+                        .tourHighlight(tour?.step == .choosePractice)
                     }
                 }
                 .padding(.horizontal)
@@ -52,5 +54,11 @@ struct SolveListView: View {
             .refreshable { viewModel.load() }
             .onAppear { viewModel.load() }
         }
+    }
+
+    private var visibleItems: [SolveListViewModel.GroupItem] {
+        guard let tour else { return viewModel.items }
+        guard let groupID = tour.groupID else { return [] }
+        return viewModel.items.filter { $0.key == .user(groupID) }
     }
 }

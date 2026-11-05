@@ -18,11 +18,11 @@ struct SRSCardView: View {
     @Binding var isFlipped: Bool
     let isReversed: Bool
     let onToggleFavourite: () -> Void
+    var cardHeight: CGFloat = 480
     
     @State private var speechError: String?
 
     private let cardWidth: CGFloat = 320
-    private let cardHeight: CGFloat = 480
     
     private var frontWord: String { isReversed ? card.translatedWord : card.originWord }
     private var frontDesc: String { isReversed ? card.translatedDescription : card.originDescription }
@@ -43,12 +43,8 @@ struct SRSCardView: View {
         }
         .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
         .frame(width: cardWidth, height: cardHeight)
-        .onTapGesture {
-            HapticService.shared.lightImpact()
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                isFlipped.toggle()
-            }
-        }
+        .onTapGesture(perform: flip)
+        .accessibilityAction(named: Text("tour_flip_button".localized()), flip)
         .onChange(of: card.id) { _, _ in
             isFlipped = false
             PronunciationService.shared.stop()
@@ -63,6 +59,13 @@ struct SRSCardView: View {
         message: { Text(speechError ?? "") }
         .onDisappear {
             PronunciationService.shared.stop()
+        }
+    }
+
+    private func flip() {
+        HapticService.shared.lightImpact()
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            isFlipped.toggle()
         }
     }
     

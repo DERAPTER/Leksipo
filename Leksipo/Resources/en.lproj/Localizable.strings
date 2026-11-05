@@ -834,3 +834,35 @@
 "profile_avatar_neck_bandana" = "Checked bandana";
 "profile_avatar_neck_bowTie" = "Bow tie";
 "profile_avatar_neck_collar" = "Collar with a tag";
+
+// App tour
+"tour_lexi" = "Lexi";
+"tour_start" = "Start the tour";
+"tour_skip" = "Skip";
+"tour_next" = "Next";
+"tour_add_menu" = "Add";
+"tour_example_group" = "First words";
+"tour_save_group" = "Save group";
+"tour_finish_without_saving" = "Finish";
+"tour_replay" = "Tour with Lexi";
+"tour_replay_hint" = "Walk through your first card, a practice round, and progress again";
+"tour_setup_error" = "Couldn't open the tour";
+"tour_flip_button" = "Flip card";
+"tour_practice_done" = "Practice round complete";
+"tour_step_introduction" = "Hi! I'm Lexi, your guide to Leksipo. You can learn words with flashcards and review them when they're due. Let's get to know each other. What's your name?";
+"tour_step_createGroup" = "Let's put your first words in a group. Tap the plus button at the top and choose Add New Group.";
+"tour_group_form" = "I've suggested a name for our sample group. Feel free to change it. Tap Create Group to continue.";
+"tour_step_addCard" = "Your group is ready! Tap it to open the list, then choose Add new card.";
+"tour_card_form" = "One side of a card shows the word, and the other shows its translation. I've filled in an example. You can edit it or save it as is.";
+"tour_step_practiceTab" = "Your card is ready. Open Solve and we'll try to recall its translation.";
+"tour_step_choosePractice" = "You can practice a whole group here. Choose the one we just created.";
+"tour_step_flipCard" = "Try to recall the translation, then tap the card to flip it.";
+"tour_step_answerCard" = "Remembered the translation? Swipe right. If you're still learning it, swipe left.";
+"tour_step_reviewsTab" = "You've answered your first card! Open Review to see when to revisit your words.";
+"tour_step_reviews" = "Cards appear here when they're due. Tap Start Review and I'll show you how spaced repetition works.";
+"tour_step_reviewFlip" = "Recall the translation, then flip the card. Here you'll rate your answer instead of swiping.";
+"tour_step_reviewRate" = "Choose how well you remembered the word. The number under each rating shows when it will return. A new card comes back after one day.";
+"tour_step_reviewResult" = "Here's your next review date. Ratings update the schedule, while free practice leaves it alone. Tap Close to continue.";
+"tour_step_profileTab" = "Let's see where your results go. Open Progress.";
+"tour_step_profile" = "You'll find your results by language and for the past week. Scroll down for tricky cards and achievements. The pencil by your avatar lets you change your name and my look.";
+"tour_step_finish" = "That's the tour! You can keep the sample group and card by saving them. Your trial answers won't count toward your stats.";

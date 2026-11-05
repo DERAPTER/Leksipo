@@ -16,11 +16,13 @@ struct SettingsView: View {
     private let languageManager = LanguageManager.shared
     
     @State private var viewModel: SettingsViewModel
+    private let onStartTour: (() -> Void)?
     
     @AppStorage("srsNewCardsPerDay") private var srsNewCardsLimit: Int = 20
     @AppStorage("hapticsEnabled") private var hapticsEnabled: Bool = true
     
-    init(container: AppContainer) {
+    init(container: AppContainer, onStartTour: (() -> Void)? = nil) {
+        self.onStartTour = onStartTour
         _viewModel = State(initialValue: SettingsViewModel(
             cardRepository: container.cardRepository,
             groupRepository: container.groupRepository,
@@ -290,6 +292,11 @@ struct SettingsView: View {
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionTitle("about".localized())
+
+            if let onStartTour {
+                SettingsRow(icon: "sparkles", title: "tour_replay".localized(),
+                            description: "tour_replay_hint".localized(), color: .accent, action: onStartTour)
+            }
             
             SettingsInfoRow(
                 icon: "info.circle",
