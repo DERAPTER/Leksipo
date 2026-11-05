@@ -2,13 +2,18 @@ import SwiftUI
 
 struct ProfileCustomizationView: View {
     @Environment(\.dismiss) private var dismiss
+    @ScaledMetric(relativeTo: .caption) private var minimumCellWidth: CGFloat = 104
+    @ScaledMetric(relativeTo: .caption) private var captionHeight: CGFloat = 44
     @State private var name: String
     @State private var appearance: LexiAvatarAppearance
+    private let access: LexiAvatarAccess
     private let onSave: (String, LexiAvatarAppearance) -> Void
 
-    init(name: String, appearance: LexiAvatarAppearance, onSave: @escaping (String, LexiAvatarAppearance) -> Void) {
+    init(name: String, appearance: LexiAvatarAppearance, access: LexiAvatarAccess,
+         onSave: @escaping (String, LexiAvatarAppearance) -> Void) {
         _name = State(initialValue: name)
         _appearance = State(initialValue: appearance)
+        self.access = access
         self.onSave = onSave
     }
 
@@ -25,7 +30,7 @@ struct ProfileCustomizationView: View {
                     headwearSection
 
                     optionsSection("profile_avatar_neckwear", options: LexiAvatarNeckwear.allCases,
-                                   selection: $appearance.neckwear, title: \.title) { option in
+                                   selection: $appearance.neckwear) { option in
                         if option == .none {
                             emptyArtwork
                         } else {
@@ -36,7 +41,7 @@ struct ProfileCustomizationView: View {
                     }
 
                     optionsSection("profile_avatar_glasses", options: LexiAvatarGlasses.allCases,
-                                   selection: $appearance.glasses, title: \.title) { option in
+                                   selection: $appearance.glasses) { option in
                         if option == .none {
                             emptyArtwork
                         } else {
@@ -47,7 +52,7 @@ struct ProfileCustomizationView: View {
                     }
 
                     optionsSection("profile_avatar_ear", options: LexiAvatarEarAccessory.allCases,
-                                   selection: $appearance.earAccessory, title: \.title) { option in
+                                   selection: $appearance.earAccessory) { option in
                         if option == .none {
                             emptyArtwork
                         } else {
@@ -58,7 +63,7 @@ struct ProfileCustomizationView: View {
                     }
 
                     optionsSection("profile_avatar_background", options: LexiAvatarBackground.allCases,
-                                   selection: $appearance.background, title: \.title) { option in
+                                   selection: $appearance.background) { option in
                         if option == .none {
                             emptyArtwork
                         } else {
@@ -107,7 +112,7 @@ struct ProfileCustomizationView: View {
     private var headwearSection: some View {
         Section("profile_avatar_hats".localized()) {
             VStack(alignment: .leading, spacing: 12) {
-                optionsGrid(LexiAvatarHeadwear.allCases, selection: $appearance.headwear, title: \.title) { option in
+                optionsGrid(LexiAvatarHeadwear.allCases, selection: $appearance.headwear) { option in
                     if option == .none {
                         emptyArtwork
                     } else {
@@ -122,7 +127,7 @@ struct ProfileCustomizationView: View {
                     .foregroundStyle(Color.textSecondary)
                     .accessibilityAddTraits(.isHeader)
 
-                optionsGrid(LexiAvatarHeadphones.allCases, selection: $appearance.headphones, title: \.title) { option in
+                optionsGrid(LexiAvatarHeadphones.allCases, selection: $appearance.headphones) { option in
                     if option == .none {
                         emptyArtwork
                     } else {
@@ -138,58 +143,94 @@ struct ProfileCustomizationView: View {
         }
     }
 
-    private func optionsSection<Option: Identifiable & Equatable, Artwork: View>(
+    private func optionsSection<Option: LexiAvatarOption, Artwork: View>(
         _ key: String,
         options: [Option],
         selection: Binding<Option>,
-        title: @escaping (Option) -> String,
         @ViewBuilder artwork: @escaping (Option) -> Artwork
     ) -> some View {
         Section(key.localized()) {
-            optionsGrid(options, selection: selection, title: title, artwork: artwork)
+            optionsGrid(options, selection: selection, artwork: artwork)
                 .padding(8)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
         }
     }
 
-    private func optionsGrid<Option: Identifiable & Equatable, Artwork: View>(
+    private func optionsGrid<Option: LexiAvatarOption, Artwork: View>(
         _ options: [Option],
         selection: Binding<Option>,
-        title: @escaping (Option) -> String,
         @ViewBuilder artwork: @escaping (Option) -> Artwork
     ) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 48, maximum: 76), spacing: 8)], spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: minimumCellWidth, maximum: minimumCellWidth * 1.5),
+                                    spacing: 8, alignment: .top)], spacing: 8) {
             ForEach(options) { option in
-                let isSelected = option == selection.wrappedValue
-                Button {
-                    selection.wrappedValue = option
-                } label: {
-                    RoundedRectangle(cornerRadius: 11)
-                        .fill(Color.cardBackground)
-                        .aspectRatio(1, contentMode: .fit)
-                        .overlay { artwork(option).accessibilityHidden(true) }
-                        .overlay(alignment: .bottomTrailing) {
-                            if isSelected {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .foregroundStyle(Color.appBackground)
-                                    .frame(width: 17, height: 17)
-                                    .background(Color.textPrimary, in: Circle())
-                                    .padding(4)
-                            }
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 11)
-                                .strokeBorder(isSelected ? Color.textPrimary : Color.stroke, lineWidth: 1)
-                        }
-                        .contentShape(Rectangle())
+                if let requirement = access.unmetRequirement(for: option) {
+                    optionCell(artwork(option), caption: requirement.caption, isLocked: true)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(option.title)
+                        .accessibilityValue(requirement.caption)
+                        .accessibilityHint("profile_avatar_locked".localized())
+                } else {
+                    let isSelected = option == selection.wrappedValue
+                    Button {
+                        selection.wrappedValue = option
+                    } label: {
+                        optionCell(artwork(option), caption: option.title, isSelected: isSelected)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(option.title)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(title(option))
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+    }
+
+    private func optionCell<Artwork: View>(_ artwork: Artwork, caption: String,
+                                           isLocked: Bool = false, isSelected: Bool = false) -> some View {
+        VStack(spacing: 4) {
+            artwork
+                .frame(maxWidth: .infinity)
+                .frame(height: 64)
+                .opacity(isLocked ? 0.55 : 1)
+                .accessibilityHidden(true)
+                .overlay(alignment: .topTrailing) {
+                    if isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+                            .frame(width: 22, height: 22)
+                            .background(Color.appBackground, in: Circle())
+                            .accessibilityHidden(true)
+                    }
+                }
+            Text(caption)
+                .font(.caption2.weight(isLocked ? .medium : .regular))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(isLocked ? Color.textSecondary : Color.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, isSelected ? 16 : 0)
+                .frame(minHeight: captionHeight, alignment: .top)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .bottomTrailing) {
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.appBackground)
+                    .frame(width: 19, height: 19)
+                    .background(Color.textPrimary, in: Circle())
+                    .padding(6)
+                    .accessibilityHidden(true)
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isSelected ? Color.textPrimary : Color.stroke, lineWidth: 1)
+        }
+        .contentShape(Rectangle())
     }
 
     private var emptyArtwork: some View {

@@ -691,6 +691,12 @@
 "profile_avatar_headphones_none" = "No headphones";
 "profile_avatar_headphones_studio" = "Studio headphones";
 "profile_avatar_headphones_retro" = "Retro headphones";
+"profile_avatar_unlock_long_term" = "%d cards at 30+ day intervals";
+"profile_avatar_unlock_streak" = "Review streak: %d days";
+"profile_avatar_unlock_created" = "Create %d cards";
+"profile_avatar_unlock_answers" = "%d correct answers";
+"profile_avatar_unlock_favourites" = "Cards in favorites: %d";
+"profile_avatar_locked" = "Item locked";
 
 // App tour
 "tour_lexi" = "Lexi";

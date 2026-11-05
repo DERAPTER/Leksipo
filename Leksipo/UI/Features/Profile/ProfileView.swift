@@ -11,6 +11,7 @@ struct ProfileView: View {
     @AppStorage("profileAvatarGlasses") private var avatarGlasses = LexiAvatarGlasses.none
     @AppStorage("profileAvatarEarAccessory") private var avatarEarAccessory = LexiAvatarEarAccessory.none
     @AppStorage("profileAvatarHeadphones") private var avatarHeadphones = LexiAvatarHeadphones.none
+    @AppStorage("profileAvatarPreviouslyEquippedOptions") private var previouslyEquippedOptions: String?
     @State private var viewModel: ProfileViewModel
     @State private var showCustomization = false
     private let onStartTour: (() -> Void)?
@@ -67,7 +68,11 @@ struct ProfileView: View {
             .sheet(isPresented: $viewModel.showAllAchievements) { AllAchievementsSheet(achievements: viewModel.achievements) }
             .sheet(isPresented: $viewModel.showHistory) { ProgressHistoryView(days: viewModel.history) }
             .sheet(isPresented: $showCustomization) {
-                ProfileCustomizationView(name: userName, appearance: avatarAppearance) { name, appearance in
+                ProfileCustomizationView(name: userName, appearance: avatarAppearance, access: avatarAccess) { name, appearance in
+                    // Keep the original outfit available even after the user changes it.
+                    if previouslyEquippedOptions == nil {
+                        previouslyEquippedOptions = avatarAppearance.gatedOptionIDs.sorted().joined(separator: ",")
+                    }
                     userName = name
                     avatarBackground = appearance.background
                     avatarHeadwear = appearance.headwear
@@ -83,6 +88,14 @@ struct ProfileView: View {
     private var avatarAppearance: LexiAvatarAppearance {
         LexiAvatarAppearance(background: avatarBackground, headwear: avatarHeadwear, neckwear: avatarNeckwear,
                              glasses: avatarGlasses, earAccessory: avatarEarAccessory, headphones: avatarHeadphones)
+    }
+
+    private var avatarAccess: LexiAvatarAccess {
+        let previouslyEquippedIDs = previouslyEquippedOptions.map { Set($0.split(separator: ",").map(String.init)) }
+        return LexiAvatarAccess(
+            unlockedAchievementIDs: Set(viewModel.achievements.lazy.filter(\.isUnlocked).map(\.id)),
+            previouslyEquippedOptionIDs: avatarAppearance.gatedOptionIDs.union(previouslyEquippedIDs ?? [])
+        )
     }
 
     private var header: some View {

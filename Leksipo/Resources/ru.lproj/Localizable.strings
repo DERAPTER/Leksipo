@@ -691,6 +691,12 @@
 "profile_avatar_headphones_none" = "Без наушников";
 "profile_avatar_headphones_studio" = "Студийные наушники";
 "profile_avatar_headphones_retro" = "Наушники в стиле ретро";
+"profile_avatar_unlock_long_term" = "%d карточек: интервал 30+ дней";
+"profile_avatar_unlock_streak" = "Серия повторений: %d дн.";
+"profile_avatar_unlock_created" = "Создать %d карточек";
+"profile_avatar_unlock_answers" = "%d правильных ответов";
+"profile_avatar_unlock_favourites" = "Карточек в избранном: %d";
+"profile_avatar_locked" = "Предмет закрыт";
 
 // App tour
 "tour_lexi" = "Лекси";

@@ -71,6 +71,27 @@ struct AchievementsServiceTests {
         #expect(unlocked.map(\.id) == ["cards_10"])
         #expect(try settings().isUnlocked("cards_10") == true)
     }
+
+    @Test("Полученное достижение открывает аксессуар и сохраняет доступ после удаления карточки")
+    func avatarRewardUsesEarnedAchievement() throws {
+        let card = try makeCard()
+        func currentAccess() -> LexiAvatarAccess {
+            LexiAvatarAccess(unlockedAchievementIDs: Set(service.allAchievements.filter(\.isUnlocked).map(\.id)),
+                             previouslyEquippedOptionIDs: [])
+        }
+
+        service.evaluate()
+        #expect(currentAccess().unmetRequirement(for: LexiAvatarEarAccessory.star) != nil)
+        try repos.card.toggleFavourite(card)
+        service.evaluate()
+        #expect(currentAccess().unmetRequirement(for: LexiAvatarEarAccessory.star) == nil)
+        #expect(currentAccess().unmetRequirement(for: LexiAvatarEarAccessory.flower) != nil)
+        #expect(currentAccess().unmetRequirement(for: LexiAvatarHeadwear.bucketHat) != nil)
+
+        try repos.card.delete(card)
+        service.refresh()
+        #expect(currentAccess().unmetRequirement(for: LexiAvatarEarAccessory.star) == nil)
+    }
     
     @Test("evaluate: несколько категорий сразу — всё попадает в результат")
     func evaluateMultipleCategories() throws {

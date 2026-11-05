@@ -1,10 +1,19 @@
 import SwiftUI
 
-enum LexiAvatarBackground: String, CaseIterable, Identifiable {
-    case sand, sky, mint, lavender, rose, gingham, rain, snow, stars, none
+enum LexiAvatarBackground: String, CaseIterable, LexiAvatarOption {
+    case sand, sky, mint, lavender, rose, none, gingham, rain, snow, stars
 
-    var id: Self { self }
-    var title: String { "profile_avatar_background_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_background"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .gingham: return .longTermCards(10)
+        case .rain: return .longTermCards(25)
+        case .snow: return .longTermCards(50)
+        case .stars: return .longTermCards(100)
+        case .sand, .sky, .mint, .lavender, .rose, .none: return nil
+        }
+    }
 
     var color: Color {
         switch self {
@@ -19,39 +28,78 @@ enum LexiAvatarBackground: String, CaseIterable, Identifiable {
     }
 }
 
-enum LexiAvatarHeadwear: String, CaseIterable, Identifiable {
-    case none, beret, bucketHat, ushanka, cap, graduationCap, chefHat
+enum LexiAvatarHeadwear: String, CaseIterable, LexiAvatarOption {
+    case none, beret, cap, bucketHat, ushanka, chefHat, graduationCap
 
-    var id: Self { self }
-    var title: String { "profile_avatar_hat_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_hat"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .bucketHat: return .reviewStreak(3)
+        case .ushanka: return .reviewStreak(7)
+        case .chefHat: return .reviewStreak(14)
+        case .graduationCap: return .reviewStreak(100)
+        case .none, .beret, .cap: return nil
+        }
+    }
 }
 
-enum LexiAvatarNeckwear: String, CaseIterable, Identifiable {
-    case none, scarf, bandana, bowTie, collar, sailorScarf, stripedTie, buttonCollar
+enum LexiAvatarNeckwear: String, CaseIterable, LexiAvatarOption {
+    case none, scarf, bandana, collar, sailorScarf, bowTie, stripedTie, buttonCollar
 
-    var id: Self { self }
-    var title: String { "profile_avatar_neck_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_neck"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .collar: return .cardsCreated(10)
+        case .sailorScarf: return .cardsCreated(50)
+        case .bowTie: return .cardsCreated(100)
+        case .stripedTie: return .cardsCreated(250)
+        case .buttonCollar: return .cardsCreated(500)
+        case .none, .scarf, .bandana: return nil
+        }
+    }
 }
 
-enum LexiAvatarGlasses: String, CaseIterable, Identifiable {
+enum LexiAvatarGlasses: String, CaseIterable, LexiAvatarOption {
     case none, round, square, catEye
 
-    var id: Self { self }
-    var title: String { "profile_avatar_glasses_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_glasses"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .square: return .correctAnswers(50)
+        case .catEye: return .correctAnswers(250)
+        case .none, .round: return nil
+        }
+    }
 }
 
-enum LexiAvatarEarAccessory: String, CaseIterable, Identifiable {
-    case none, star, bow, flower
+enum LexiAvatarEarAccessory: String, CaseIterable, LexiAvatarOption {
+    case none, bow, star, flower
 
-    var id: Self { self }
-    var title: String { "profile_avatar_ear_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_ear"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .star: return .favourites(1)
+        case .flower: return .favourites(10)
+        case .none, .bow: return nil
+        }
+    }
 }
 
-enum LexiAvatarHeadphones: String, CaseIterable, Identifiable {
+enum LexiAvatarHeadphones: String, CaseIterable, LexiAvatarOption {
     case none, studio, retro
 
-    var id: Self { self }
-    var title: String { "profile_avatar_headphones_\(rawValue)".localized() }
+    static let titlePrefix = "profile_avatar_headphones"
+
+    var unlockRequirement: LexiAvatarUnlockRequirement? {
+        switch self {
+        case .retro: return .reviewStreak(30)
+        case .none, .studio: return nil
+        }
+    }
 }
 
 struct LexiAvatarAppearance {
@@ -61,6 +109,11 @@ struct LexiAvatarAppearance {
     var glasses: LexiAvatarGlasses
     var earAccessory: LexiAvatarEarAccessory
     var headphones: LexiAvatarHeadphones
+
+    var gatedOptionIDs: Set<String> {
+        let options: [any LexiAvatarOption] = [background, headwear, neckwear, glasses, earAccessory, headphones]
+        return Set(options.filter { $0.unlockRequirement != nil }.map(\.optionID))
+    }
 }
 
 struct LexiAvatarView: View {
