@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import WidgetKit
 
 // Управляет текущей цветовой темой приложения.
@@ -16,14 +17,13 @@ final class ThemeManager {
     
     private static let storageKey = "selectedTheme"
     
-    var currentTheme: AppTheme {
+    private(set) var currentTheme: AppTheme {
         didSet {
             UserDefaults.standard.set(currentTheme.rawValue, forKey: Self.storageKey)
             
             SRSWidgetStore.saveTheme(currentTheme)
             WidgetCenter.shared.reloadAllTimelines()
             
-            applyNavigationBarAppearance()
             NotificationCenter.default.post(name: .themeChanged, object: nil)
         }
     }
@@ -43,11 +43,14 @@ final class ThemeManager {
         WidgetCenter.shared.reloadAllTimelines()
     }
     
+    @MainActor
     func setTheme(_ theme: AppTheme) {
         guard theme != currentTheme else { return }
         currentTheme = theme
+        applyNavigationBarAppearance()
     }
     
+    @MainActor
     func applyNavigationBarAppearance() {
         let c = colors
         let appearance = UINavigationBarAppearance()
@@ -56,10 +59,36 @@ final class ThemeManager {
         appearance.titleTextAttributes = [.foregroundColor: UIColor(c.textPrimary)]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor(c.textPrimary)]
         
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        UINavigationBar.appearance().compactAppearance = appearance
-        UINavigationBar.appearance().tintColor = UIColor(c.accent)
+        let tint = UIColor(c.accent)
+        style(UINavigationBar.appearance(), with: appearance, tint: tint)
+
+        // UIAppearance задаёт стиль для будущих панелей. Уже открытые
+        // NavigationStack используют существующие экземпляры UINavigationBar.
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows {
+                updateNavigationBars(in: window, appearance: appearance, tint: tint)
+            }
+        }
+    }
+
+    @MainActor
+    private func updateNavigationBars(in view: UIView, appearance: UINavigationBarAppearance, tint: UIColor) {
+        if let bar = view as? UINavigationBar {
+            style(bar, with: appearance, tint: tint)
+        } else {
+            for subview in view.subviews {
+                updateNavigationBars(in: subview, appearance: appearance, tint: tint)
+            }
+        }
+    }
+
+    @MainActor
+    private func style(_ bar: UINavigationBar, with appearance: UINavigationBarAppearance, tint: UIColor) {
+        bar.standardAppearance = appearance
+        bar.scrollEdgeAppearance = appearance
+        bar.compactAppearance = appearance
+        bar.compactScrollEdgeAppearance = appearance
+        bar.tintColor = tint
     }
 }
 
