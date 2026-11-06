@@ -56,6 +56,7 @@ struct SRSQualityButtonsView: View {
     
     private func intervalLabel(for quality: SRSQuality) -> String {
         guard let days = intervalPreviews[quality] else { return "—" }
+        if days == 0 { return "srs_interval_again".localized() }
         if days == 1 { return "srs_interval_1d".localized() }
         return String(format: "srs_interval_nd".localized(), days)
     }

@@ -23,7 +23,12 @@ final class AnswerRecordingService {
             guard session.currentCardID == card.id, try cards.fetch(id: card.id) != nil else {
                 throw PersistenceError.staleSession
             }
+            guard (session.groupKey == .srs) == (quality != nil) else {
+                throw PersistenceError.staleSession
+            }
+            let effectiveCorrect = quality?.isCorrect ?? correct
             let previousReview = card.lastReviewDate
+            let wasRelearning = card.srsRelearningPending == true
             let wasRecovering = card.srsRecoveryPending == true
             if let quality {
                 let due = try cards.fetchDueToday(on: date, newCardsLimit: coordinator.newCardsLimit)
@@ -32,7 +37,7 @@ final class AnswerRecordingService {
             } else {
                 try cards.recordAnswer(card, correct: correct)
             }
-            if correct { _ = try stats.recordSolved(on: date) }
+            if effectiveCorrect { _ = try stats.recordSolved(on: date) }
             var updated = try (quality != nil || correct)
                 ? coordinator.markCorrect(session, quality: quality)
                 : coordinator.markWrong(session)
@@ -43,7 +48,7 @@ final class AnswerRecordingService {
                 var milestones: Set<SRSMilestone> = [.firstReview]
                 // Завершение отдельного раунда не равно выполнению всей дневной очереди.
                 if overview.dueToday == 0 { milestones.insert(.firstClear) }
-                if quality?.isCorrect == true {
+                if quality?.isCorrect == true && !wasRelearning {
                     if let previousReview {
                         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: previousReview),
                                                            to: calendar.startOfDay(for: date)).day ?? 0

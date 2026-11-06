@@ -251,7 +251,7 @@ final class SwiftDataCardRepository: CardRepository {
         let end = StudyDay.end(of: date, calendar: calendar)
         let all = try fetchAll()
         let remaining = max(0, max(0, newCardsLimit) - (try dailyStat(on: date)?.srsNewCardsIntroduced ?? 0))
-        let due = all.filter { !$0.isNewInSRS && ($0.nextReviewDate.map { $0 < end } ?? false) }
+        let due = all.filter { !$0.isNewInSRS && ($0.srsRelearningPending == true || ($0.nextReviewDate.map { $0 < end } ?? false)) }
             .sorted {
                 if $0.nextReviewDate != $1.nextReviewDate { return ($0.nextReviewDate ?? .distantPast) < ($1.nextReviewDate ?? .distantPast) }
                 return $0.id.uuidString < $1.id.uuidString
@@ -260,7 +260,10 @@ final class SwiftDataCardRepository: CardRepository {
             if $0.dateAdded != $1.dateAdded { return $0.dateAdded < $1.dateAdded }
             return $0.id.uuidString < $1.id.uuidString
         }
-        return due + newCards.prefix(remaining)
+        // Сначала плановые и новые карточки, затем закрепление в конце раунда.
+        return due.filter { $0.srsRelearningPending != true }
+            + newCards.prefix(remaining)
+            + due.filter { $0.srsRelearningPending == true }
     }
 
     func dueTodayCount(on date: Date, newCardsLimit: Int) throws -> Int {
@@ -287,6 +290,7 @@ final class SwiftDataCardRepository: CardRepository {
                 currentEaseFactor: card.easeFactor,
                 currentIntervalDays: card.intervalDays,
                 currentRepetitions: card.repetitions,
+                isRelearning: card.srsRelearningPending == true,
                 from: date,
                 calendar: calendar
             )
@@ -296,6 +300,7 @@ final class SwiftDataCardRepository: CardRepository {
             card.easeFactor = prediction.easeFactor
             card.nextReviewDate = prediction.nextReviewDate
             card.lastReviewDate = date
+            card.srsRelearningPending = quality < 4
 
             if quality >= 3 {
                 card.correctCount += 1
@@ -316,7 +321,7 @@ final class SwiftDataCardRepository: CardRepository {
         let all = try fetchAll()
         let queue = try fetchDueToday(on: date, newCardsLimit: newCardsLimit)
         var futureByDay: [Date: Int] = [:]
-        for card in all where !card.isNewInSRS {
+        for card in all where !card.isNewInSRS && card.srsRelearningPending != true {
             if let next = card.nextReviewDate, next >= end {
                 futureByDay[calendar.startOfDay(for: next), default: 0] += 1
             }

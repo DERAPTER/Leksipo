@@ -41,7 +41,7 @@
 "tab_cards" = "Cards";
 "tab_solve" = "Solve";
 "tab_srs" = "Review";
-"tab_profile" = "Progress";
+"tab_profile" = "Profile";
 
 /* ============ THEMES ============ */
 "theme_beige" = "Beige";
@@ -204,6 +204,7 @@
 "srs_q3" = "Hard";
 "srs_q4" = "Good";
 "srs_q5" = "Easy";
+"srs_interval_again" = "Again";
 "srs_interval_1d" = "+1d";
 "srs_interval_nd" = "+%dd";
 "srs_result_title" = "Great job!";
@@ -212,7 +213,7 @@
 "srs_new_cards_limit" = "New cards per day";
 "srs_new_cards_limit_hint" = "How many new cards to introduce daily";
 "srs_reverse_mode" = "Обратный режим";
-"srs_result_breakdown" = "Your answers";
+"srs_result_breakdown" = "Answers, including repeats";
 
 /* ============ SRS OVERVIEW ============ */
 "srs_overview_subtitle" = "Review words at increasing intervals";
@@ -241,7 +242,7 @@
 "card_added_success" = "Card added successfully!";
 
 /* ============ PROFILE ============ */
-"profile_title" = "Progress";
+"profile_title" = "Profile";
 "learner" = "Learner";
 "your_progress_today" = "Your progress today";
 "daily_goal" = "Daily goal: correct answers";
@@ -724,8 +725,8 @@
 "tour_step_reviewsTab" = "You've answered your first card! Open Review to see when to revisit your words.";
 "tour_step_reviews" = "Cards appear here when they're due. Tap Start Review and I'll show you how spaced repetition works.";
 "tour_step_reviewFlip" = "Recall the translation, then flip the card. Here you'll rate your answer instead of swiping.";
-"tour_step_reviewRate" = "Choose how well you remembered the word. The number under each rating shows when it will return. A new card comes back after one day.";
+"tour_step_reviewRate" = "Choose how well you remembered the word. “Again” returns the card to the end of the queue: repeat it until you choose Good or Easy. A number of days shows the next scheduled review.";
 "tour_step_reviewResult" = "Here's your next review date. Ratings update the schedule, while free practice leaves it alone. Tap Close to continue.";
-"tour_step_profileTab" = "Let's see where your results go. Open Progress.";
+"tour_step_profileTab" = "Let's see where your results go. Open Profile.";
 "tour_step_profile" = "You'll find your results by language and for the past week. Scroll down for tricky cards and achievements. The pencil by your avatar lets you change your name and my look.";
 "tour_step_finish" = "That's the tour! You can keep the sample group and card by saving them. Your trial answers won't count toward your stats.";

@@ -34,6 +34,8 @@ enum SRSQuality: Int, CaseIterable, Identifiable {
     
     /// Ответ считается правильным, если оценка ≥ 3.
     var isCorrect: Bool { rawValue >= 3 }
+
+    var requiresRelearning: Bool { rawValue < 4 }
     
     var color: Color {
         switch self {

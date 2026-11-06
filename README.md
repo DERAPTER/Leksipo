@@ -1,4 +1,10 @@
 <p align="center">
+  <img src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-18.5%2B-2563EB?style=flat-square" alt="iOS и iPadOS 18.5 и новее">
+  <img src="https://img.shields.io/badge/UI-SwiftUI-7C3AED?style=flat-square" alt="SwiftUI">
+  <img src="https://img.shields.io/badge/Storage-SwiftData-0F766E?style=flat-square" alt="SwiftData">
+</p>
+
+<p align="center">
   <img src="LeksipoIcon.png" width="128" height="128" alt="Иконка Leksipo">
 </p>
 
@@ -9,12 +15,6 @@
 <p align="center">
   Карточки для изучения слов на iPhone и iPad.<br>
   Собирай лексику из книг, занятий и разговоров, а Leksipo подскажет, что пора повторить.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-18.5%2B-2563EB?style=flat-square" alt="iOS и iPadOS 18.5 и новее">
-  <img src="https://img.shields.io/badge/UI-SwiftUI-7C3AED?style=flat-square" alt="SwiftUI">
-  <img src="https://img.shields.io/badge/Storage-SwiftData-0F766E?style=flat-square" alt="SwiftData">
 </p>
 
 <p align="center">

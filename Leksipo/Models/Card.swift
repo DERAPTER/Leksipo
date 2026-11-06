@@ -42,6 +42,10 @@ final class Card {
     /// Ошибка SRS, после которой ещё не было трёх успешных повторений подряд.
     /// nil у старых карточек: исторические последовательности не восстанавливаем по счётчикам.
     var srsRecoveryPending: Bool? = nil
+
+    /// Незавершённое закрепление после оценки < 4. nil у карточек старой базы.
+    /// nextReviewDate при этом хранит плановый интервал, а карточка доступна уже сегодня.
+    var srsRelearningPending: Bool? = nil
     
     // MARK: - Relationships
     
@@ -119,6 +123,7 @@ final class Card {
     
     /// Пора повторять сегодня (или карточка новая).
     var isDueToday: Bool {
+        if srsRelearningPending == true { return true }
         guard let next = nextReviewDate else { return true }
         let endOfToday = StudyDay.end(of: .now)
         return next < endOfToday

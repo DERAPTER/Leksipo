@@ -192,3 +192,37 @@ extension MigrationSafetyTests {
         #expect(session.srsQualityCounts?[String(SRSQuality.remembered.rawValue)] == 1)
     }
 }
+
+
+extension MigrationSafetyTests {
+    @Test("Незавершённое закрепление и оценки сохраняются после закрытия базы")
+    func relearningSurvivesReopen() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Relearning.\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = "Relearning.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let schema = Schema([Card.self, CardGroup.self, DailyStat.self, UserSettings.self])
+        let config = ModelConfiguration(schema: schema, url: directory.appendingPathComponent("test.store"), cloudKitDatabase: .none)
+        let id = try autoreleasepool {
+            let container = try ModelContainer(for: schema, configurations: config)
+            let app = try AppContainer.live(container: container, defaults: defaults, integrateSystemServices: false)
+            let card = try app.cardRepository.create(origin: "one", translated: "один", groups: [])
+            let session = try app.solveSessionCoordinator.currentSession(for: .srs)
+            _ = try app.answerRecorder.record(card: card, session: session, correct: false, quality: .forgot)
+            return card.id
+        }
+        let reopened = try ModelContainer(for: schema, configurations: config)
+        let app = try AppContainer.live(container: reopened, defaults: defaults, integrateSystemServices: false)
+        let card = try #require(try app.cardRepository.fetch(id: id))
+        #expect(card.srsRelearningPending == true)
+        let session = try app.solveSessionCoordinator.currentSession(for: .srs)
+        #expect(session.currentCardID == id)
+        #expect(session.srsQualityCounts?["1"] == 1)
+        let completed = try app.answerRecorder.record(card: card, session: session, correct: true, quality: .remembered)
+        #expect(completed.isCompletedWithoutMistakes)
+        #expect(card.intervalDays == 1 && card.repetitions == 0)
+        #expect(card.srsRelearningPending == false)
+    }
+}

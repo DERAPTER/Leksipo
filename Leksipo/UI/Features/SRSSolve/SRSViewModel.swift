@@ -100,11 +100,12 @@ final class SRSViewModel {
         guard let card = currentCard else { return [:] }
         var result: [SRSQuality: Int] = [:]
         for q in SRSQuality.allCases {
-            result[q] = SRSAlgorithm.previewIntervalDays(
+            result[q] = q.requiresRelearning ? 0 : SRSAlgorithm.previewIntervalDays(
                 quality: q.rawValue,
                 currentEaseFactor: card.easeFactor,
                 currentIntervalDays: card.intervalDays,
-                currentRepetitions: card.repetitions
+                currentRepetitions: card.repetitions,
+                isRelearning: card.srsRelearningPending == true
             )
         }
         return result

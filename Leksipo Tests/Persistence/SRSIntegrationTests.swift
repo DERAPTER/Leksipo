@@ -458,3 +458,26 @@ extension SRSIntegrationTests {
         #expect(router.pendingRoute == .srs)
     }
 }
+
+
+extension SRSIntegrationTests {
+    @Test("Закрепление остаётся в виджете и напоминании на сегодня до успешного ответа")
+    func relearningKeepsTodayReminder() async throws {
+        let date = StudyDay.calendar.startOfDay(for: .now)
+        let f = try IntegrationFixture(date: date)
+        f.integration.setRemindersEnabled(true)
+        let card = try f.app.cardRepository.create(origin: "one", translated: "один", groups: [])
+        let original = try f.app.solveSessionCoordinator.currentSession(for: .srs)
+        let pending = try f.app.answerRecorder.record(card: card, session: original, correct: false, quality: .forgot, on: date)
+        await f.notifications.waitUntilIdle()
+        #expect(try f.snapshot().dueToday == 1)
+        #expect(try f.snapshot().nextReviewCount == 0)
+        #expect(f.probe.requests["daily_srs_reminder.0"]?.components.day == StudyDay.calendar.component(.day, from: date))
+        _ = try f.app.answerRecorder.record(card: card, session: pending, correct: true, quality: .remembered, on: date)
+        await f.notifications.waitUntilIdle()
+        #expect(try f.snapshot().dueToday == 0)
+        #expect(try f.snapshot().nextReviewCount == 1)
+        let tomorrow = StudyDay.end(of: date)
+        #expect(f.probe.requests["daily_srs_reminder.0"]?.components.day == StudyDay.calendar.component(.day, from: tomorrow))
+    }
+}

@@ -44,6 +44,7 @@ enum BackupService {
                 lastReviewDate: card.lastReviewDate,
                 groupIDs: card.groups.map(\.id),
                 srsRecoveryPending: card.srsRecoveryPending ?? false,
+                srsRelearningPending: card.srsRelearningPending ?? false,
                 learningLanguageCode: card.languagePair.learning.code,
                 translationLanguageCode: card.languagePair.translation.code
             )
@@ -88,7 +89,7 @@ enum BackupService {
         )
         
         let root = BackupRoot(
-            schemaVersion: 3,
+            schemaVersion: 4,
             version: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             exportDate: .now,
             cards: backupCards,
@@ -153,6 +154,7 @@ enum BackupService {
                 card.nextReviewDate = c.nextReviewDate
                 card.lastReviewDate = c.lastReviewDate
                 card.srsRecoveryPending = c.srsRecoveryPending
+                card.srsRelearningPending = c.srsRelearningPending
                 card.groups = try c.groupIDs.map {
                     guard let group = groupMap[$0] else { throw PersistenceError.invalidBackup }
                     return group
@@ -202,7 +204,7 @@ enum BackupService {
         let backup: BackupRoot
         do { backup = try decoder.decode(BackupRoot.self, from: data) }
         catch { throw PersistenceError.invalidBackup }
-        guard backup.schemaVersion == 3 || backup.schemaVersion == 2 || backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
+        guard backup.schemaVersion == 4 || backup.schemaVersion == 3 || backup.schemaVersion == 2 || backup.schemaVersion == 1 || (backup.schemaVersion == nil && backup.version == "2.9.0") else {
             throw PersistenceError.unsupportedBackup
         }
         func require(_ condition: Bool) throws {
@@ -233,20 +235,21 @@ enum BackupService {
             try require(text(g.name) && count(g.orderIndex) && date(g.createdAt))
         }
         for c in backup.cards {
-            if backup.schemaVersion == 3 { try require(c.srsRecoveryPending != nil) }
+            if backup.schemaVersion == 4 { try require(c.srsRelearningPending != nil) }
+            if (backup.schemaVersion ?? 0) >= 3 { try require(c.srsRecoveryPending != nil) }
             let languages = try pair(c.learningLanguageCode, c.translationLanguageCode)
             try require(c.groupIDs.allSatisfy { groupPairs[$0] == languages })
             try require(text(c.originWord) && text(c.translatedWord))
             try require(count(c.correctCount) && count(c.wrongCount) && count(c.repetitions))
-            try require(c.easeFactor.isFinite && (1.3...100).contains(c.easeFactor))
-            try require((0...365_000).contains(c.intervalDays))
+            try require(c.easeFactor.isFinite && (SRSAlgorithm.minimumEaseFactor...SRSAlgorithm.maximumEaseFactor).contains(c.easeFactor))
+            try require((0...SRSAlgorithm.maximumIntervalDays).contains(c.intervalDays))
             try require(date(c.dateAdded) && (c.lastReviewDate.map(date) ?? true))
             try require(c.nextReviewDate.map(date) ?? true)
             try require((c.lastReviewDate == nil) == (c.nextReviewDate == nil))
             if let last = c.lastReviewDate, let next = c.nextReviewDate {
                 try require(c.intervalDays >= 1 && next > last)
             } else {
-                try require(c.intervalDays == 0 && c.repetitions == 0)
+                try require(c.intervalDays == 0 && c.repetitions == 0 && c.srsRelearningPending != true)
             }
             try require(Set(c.groupIDs).count == c.groupIDs.count && Set(c.groupIDs).isSubset(of: groupIDs))
         }
@@ -269,7 +272,7 @@ enum BackupService {
             try require(date(s.date) && abs(keyDate.timeIntervalSince(s.date)) <= 86_400 && count(s.solvedCount))
         }
         let s = backup.settings
-        if backup.schemaVersion == 3 { try require(s.srsMilestonesRaw != nil) }
+        if (backup.schemaVersion ?? 0) >= 3 { try require(s.srsMilestonesRaw != nil) }
         let milestones = s.srsMilestonesRaw ?? 0
         try require(milestones >= 0 && milestones & ~SRSMilestone.validMask == 0)
         _ = try pair(s.learningLanguageCode, s.translationLanguageCode)

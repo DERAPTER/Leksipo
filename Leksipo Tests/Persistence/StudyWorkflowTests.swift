@@ -152,6 +152,9 @@ struct StudyWorkflowTests {
         session = try f.answer(session, quality: .forgot)
         #expect(try f.stats.activity(for: f.clock.date)?.srsNewCardsIntroduced == 1)
         session = try f.answer(session)
+        #expect(session.isSolving)
+        session = try f.answer(session)
+        #expect(try f.stats.activity(for: f.clock.date)?.srsNewCardsIntroduced == 2)
         #expect(session.isCompletedWithoutMistakes)
         #expect(try f.cards.dueTodayCount(on: f.clock.date, newCardsLimit: 2) == 0)
         #expect(try f.coordinator.currentSession(for: .srs).unsolvedIDs.isEmpty)
@@ -230,11 +233,13 @@ struct StudyWorkflowTests {
         await first.rateCurrentCard(.forgot)
         let resumed = f.srsViewModel()
         resumed.onAppear()
-        #expect(resumed.reviewedCount == 1)
+        #expect(resumed.reviewedCount == 0)
         #expect(resumed.qualityCounts[.forgot] == 1)
         await resumed.rateCurrentCard(.remembered)
+        #expect(resumed.reviewedCount == 1)
+        await resumed.rateCurrentCard(.remembered)
         #expect(resumed.reviewedCount == 2)
-        #expect(resumed.qualityCounts.values.reduce(0, +) == 2)
+        #expect(resumed.qualityCounts.values.reduce(0, +) == 3)
         #expect(resumed.nextReviewDate != nil)
         #expect(resumed.nextReviewCount == 2)
     }
@@ -403,6 +408,7 @@ extension StudyWorkflowTests {
         #expect(throws: (any Error).self) { try recorder.record(card: card, session: session, correct: correct, quality: correct ? .remembered : .forgot) }
         #expect(card.lastReviewDate == nil)
         #expect(card.srsRecoveryPending == nil)
+        #expect(card.srsRelearningPending == nil)
         #expect(try f.stats.settings().srsMilestonesRaw == nil)
         #expect(try f.stats.activity(for: f.clock.date) == nil)
         #expect(try f.store.load(for: .srs) == session)
@@ -450,6 +456,9 @@ extension StudyWorkflowTests {
         var session = try f.coordinator.currentSession(for: .srs)
         try f.card("added during session")
         session = try f.answer(session, quality: .forgot)
+        #expect(try f.stats.settings().srsMilestonesRaw == SRSMilestone.firstReview.mask)
+        session = try f.answer(session)
+        #expect(session.isSolving)
         #expect(try f.stats.settings().srsMilestonesRaw == SRSMilestone.firstReview.mask)
         session = try f.answer(session)
         #expect(session.isCompletedWithoutMistakes)
@@ -505,14 +514,18 @@ extension StudyWorkflowTests {
     func storyRecovery() throws {
         let f = try WorkflowFixture()
         let card = try f.card("one")
-        _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        var pending = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
         #expect(card.srsRecoveryPending == true)
+        pending = try f.answer(pending)
+        #expect(pending.isCompletedWithoutMistakes)
         let free = try f.coordinator.currentSession(for: .system(.allCards))
         _ = try f.recorder.record(card: card, session: free, correct: true)
         #expect(card.repetitions == 0)
         for quality: SRSQuality in [.remembered, .forgot, .hard, .remembered, .easy] {
             f.clock.date = try #require(card.nextReviewDate)
-            _ = try f.answer(f.coordinator.currentSession(for: .srs), quality: quality)
+            var session = try f.answer(f.coordinator.currentSession(for: .srs), quality: quality)
+            if quality.requiresRelearning { session = try f.answer(session) }
+            #expect(session.isCompletedWithoutMistakes)
             let raw = try f.stats.settings().srsMilestonesRaw ?? 0
             #expect((raw & SRSMilestone.recovery.mask != 0) == (card.repetitions == 3))
         }
@@ -557,7 +570,9 @@ extension StudyWorkflowTests {
         let target = try WorkflowFixture()
         try BackupService.restoreBackup(from: backup, context: target.container.mainContext, transaction: target.tx)
         #expect(try target.cards.fetch(id: card.id)?.srsRecoveryPending == true)
-        #expect(try target.stats.settings().srsMilestonesRaw == 3)
+        #expect(try target.cards.fetch(id: card.id)?.srsRelearningPending == true)
+        #expect(try target.stats.settings().srsMilestonesRaw == SRSMilestone.firstReview.mask)
+        #expect(try target.cards.dueTodayCount(on: target.clock.date, newCardsLimit: 2) == 1)
 
         var json = try #require(JSONSerialization.jsonObject(with: backup) as? [String: Any])
         var cards = try #require(json["cards"] as? [[String: Any]])
@@ -1068,5 +1083,155 @@ extension StudyWorkflowTests {
         #expect(!document.fileName.contains(":"))
         #expect(!document.fileName.contains("\n"))
         #expect(document.fileName.utf8.count <= 125)
+    }
+}
+
+
+extension StudyWorkflowTests {
+    @Test("Оценки 0–3 требуют закрепления; 4–5 завершают карточку", arguments: SRSQuality.allCases)
+    func relearningThreshold(quality: SRSQuality) throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        var session = try f.answer(f.coordinator.currentSession(for: .srs), quality: quality)
+        #expect(session.isSolving == quality.requiresRelearning)
+        #expect(card.srsRelearningPending == quality.requiresRelearning)
+        #expect(try f.stats.activity(for: f.clock.date)?.srsCleared == !quality.requiresRelearning)
+        if quality.requiresRelearning {
+            let interval = card.intervalDays, reps = card.repetitions, ease = card.easeFactor
+            session = try f.answer(session, quality: .easy)
+            #expect(session.isCompletedWithoutMistakes)
+            #expect(card.intervalDays == interval)
+            #expect(card.repetitions == reps)
+            #expect(card.easeFactor == ease)
+            #expect(card.srsRelearningPending == false)
+        }
+        #expect(try f.stats.activity(for: f.clock.date)?.srsNewCardsIntroduced == 1)
+    }
+
+    @Test("Закрепление идёт в конце очереди и сохраняется без сохранённой сессии")
+    func relearningSurvivesLostSessionAndNewContext() throws {
+        let f = try WorkflowFixture()
+        try f.card("one")
+        try f.card("two")
+        let original = try f.coordinator.currentSession(for: .srs)
+        let firstID = try #require(original.currentCardID)
+        let pending = try f.answer(original, quality: .hard)
+        #expect(pending.unsolvedIDs.last == firstID)
+        #expect(pending.currentCardID != firstID)
+        #expect(try f.coordinator.currentSession(for: .srs) == pending)
+        try f.store.clear(for: .srs)
+        let context = ModelContext(f.container)
+        let cards = SwiftDataCardRepository(context: context, calendar: f.calendar, defaults: f.defaults)
+        #expect(try cards.fetch(id: firstID)?.srsRelearningPending == true)
+        #expect(try cards.fetchDueToday(on: f.clock.date, newCardsLimit: 2).map(\.id) == pending.unsolvedIDs)
+        #expect(try f.coordinator.currentSession(for: .srs).unsolvedIDs == pending.unsolvedIDs)
+        let overview = try cards.srsOverview(on: f.clock.date, newCardsLimit: 2)
+        #expect(overview.dueToday == 2)
+        #expect(overview.nextReviewCount == 0)
+    }
+
+    @Test("Незавершённое закрепление доступно после полуночи и не расходует новый лимит")
+    func relearningCrossesMidnight() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        let old = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        try f.advance(1)
+        #expect(throws: PersistenceError.self) { try f.answer(old) }
+        let fresh = try f.coordinator.currentSession(for: .srs)
+        #expect(fresh.currentCardID == card.id)
+        let completed = try f.answer(fresh)
+        #expect(completed.isCompletedWithoutMistakes)
+        #expect(card.repetitions == 0)
+        #expect(card.intervalDays == 1)
+        #expect(try f.stats.activity(for: f.clock.date)?.srsNewCardsIntroduced == 0)
+        try f.advance(1)
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        #expect(card.repetitions == 1)
+    }
+
+    @Test("Сбой сохранения закрепления откатывает карточку, очередь и счётчики")
+    func relearningCompletionRollback() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        let session = try f.answer(f.coordinator.currentSession(for: .srs), quality: .forgot)
+        let oldNext = card.nextReviewDate
+        let failing = PersistenceTransaction(context: f.container.mainContext, save: { _ in throw CocoaError(.fileWriteUnknown) })
+        let cards = SwiftDataCardRepository(context: f.container.mainContext, transaction: failing)
+        let stats = SwiftDataStatsRepository(context: f.container.mainContext, transaction: failing)
+        let store = SolveSessionStore(defaults: f.defaults, transaction: failing)
+        let coordinator = SolveSessionCoordinator(store: store, cardRepository: cards, defaults: f.defaults)
+        let recorder = AnswerRecordingService(transaction: failing, cards: cards, stats: stats, coordinator: coordinator)
+        #expect(throws: (any Error).self) {
+            try recorder.record(card: card, session: session, correct: true, quality: .easy)
+        }
+        #expect(card.srsRelearningPending == true)
+        #expect(card.nextReviewDate == oldNext)
+        #expect(card.correctCount == 0)
+        #expect(try f.stats.activity(for: f.clock.date)?.srsReviewCount == 1)
+        #expect(try f.store.load(for: .srs) == session)
+    }
+
+    @Test("Предпросмотр предлагает повтор сейчас и сохраняет интервал после закрепления")
+    func relearningPreview() async throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        let vm = f.srsViewModel()
+        vm.onAppear()
+        #expect(vm.intervalPreviews()[.hard] == 0)
+        await vm.rateCurrentCard(.forgot)
+        #expect(vm.currentCard?.id == card.id)
+        #expect(vm.intervalPreviews()[.easy] == 1)
+        await vm.rateCurrentCard(.easy)
+        #expect(card.intervalDays == 1)
+        #expect(vm.reviewedCount == 1)
+        #expect(vm.qualityCounts.values.reduce(0, +) == 2)
+    }
+
+    @Test("Правильность SRS-ответа определяется оценкой")
+    func qualityOwnsCorrectness() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        let session = try f.coordinator.currentSession(for: .srs)
+        _ = try f.recorder.record(card: card, session: session, correct: true, quality: .forgot)
+        #expect(try f.stats.settings().totalSolved == 0)
+        #expect(card.wrongCount == 1)
+    }
+}
+
+
+extension StudyWorkflowTests {
+    @Test("Старый бэкап без закрепления читается, новый не допускает потерю флага")
+    func relearningBackupCompatibility() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        _ = try f.answer(f.coordinator.currentSession(for: .srs))
+        var json = try #require(JSONSerialization.jsonObject(with: BackupService.createBackup(context: f.container.mainContext)) as? [String: Any])
+        var cards = try #require(json["cards"] as? [[String: Any]])
+        cards[0].removeValue(forKey: "srsRelearningPending")
+        json["cards"] = cards
+        #expect(throws: PersistenceError.self) {
+            try BackupService.validatedBackup(from: JSONSerialization.data(withJSONObject: json))
+        }
+        json["schemaVersion"] = 3
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let target = try WorkflowFixture()
+        try BackupService.restoreBackup(from: data, context: target.container.mainContext, transaction: target.tx)
+        let restored = try #require(try target.cards.fetch(id: card.id))
+        #expect(restored.srsRelearningPending == nil)
+        #expect(restored.repetitions == 1)
+        #expect(try target.cards.dueTodayCount(on: target.clock.date, newCardsLimit: 2) == 0)
+    }
+
+    @Test("Удаление карточки на закреплении убирает её из очереди")
+    func deletingRelearningCard() throws {
+        let f = try WorkflowFixture()
+        let card = try f.card("one")
+        let stale = try f.answer(f.coordinator.currentSession(for: .srs), quality: .hard)
+        try f.cards.delete(card)
+        #expect(throws: PersistenceError.self) {
+            try f.recorder.record(card: card, session: stale, correct: true, quality: .remembered)
+        }
+        #expect(try f.coordinator.currentSession(for: .srs).unsolvedIDs.isEmpty)
+        #expect(try f.cards.srsOverview(on: f.clock.date, newCardsLimit: 2).dueToday == 0)
     }
 }

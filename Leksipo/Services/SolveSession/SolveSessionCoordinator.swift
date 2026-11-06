@@ -46,8 +46,7 @@ final class SolveSessionCoordinator {
             }
             // Репозиторий определяет порядок и оставшийся дневной лимит.
             // UUID отвеченных карточек сохраняем даже после их удаления.
-            let answered = Set(session.successIDs + session.failIDs)
-            session.unsolvedIDs = dueIDs.filter { !answered.contains($0) }
+            session.unsolvedIDs = reconciledSRSQueue(session.unsolvedIDs, dueIDs: dueIDs)
             if session.unsolvedIDs.isEmpty { try store.clear(for: key) }
             else { try store.save(session, for: key) }
             return session
@@ -89,7 +88,12 @@ final class SolveSessionCoordinator {
     
     func markCorrect(_ session: SolveSession, quality: SRSQuality? = nil) throws -> SolveSession {
         var updated = session
-        updated.markCorrect()
+        if quality?.requiresRelearning == true {
+            // Не считаем карточку завершённой до оценки >= 4.
+            if !updated.unsolvedIDs.isEmpty { updated.unsolvedIDs.removeFirst() }
+        } else {
+            updated.markCorrect()
+        }
         if let quality {
             var counts = updated.srsQualityCounts ?? [:]
             counts[String(quality.rawValue), default: 0] += 1
@@ -101,9 +105,8 @@ final class SolveSessionCoordinator {
     
     func refreshSRSQueue(_ session: SolveSession, on date: Date) throws -> SolveSession {
         var updated = session
-        let answered = Set(session.successIDs + session.failIDs)
-        updated.unsolvedIDs = try cardRepository.fetchDueToday(on: date, newCardsLimit: newCardsLimit)
-            .map(\.id).filter { !answered.contains($0) }
+        let dueIDs = try cardRepository.fetchDueToday(on: date, newCardsLimit: newCardsLimit).map(\.id)
+        updated.unsolvedIDs = reconciledSRSQueue(session.unsolvedIDs, dueIDs: dueIDs)
         if updated.unsolvedIDs.isEmpty { try store.clear(for: .srs) }
         else { try store.save(updated, for: .srs) }
         return updated
@@ -133,6 +136,14 @@ final class SolveSessionCoordinator {
 
     // MARK: - Private
     
+    private func reconciledSRSQueue(_ currentIDs: [UUID], dueIDs: [UUID]) -> [UUID] {
+        let due = Set(dueIDs)
+        let retained = currentIDs.filter { due.contains($0) }
+        let known = Set(retained)
+        // Только что отвеченная карточка попадёт в конец, а порядок после выхода сохранится.
+        return retained + dueIDs.filter { !known.contains($0) }
+    }
+
     private func reconcile(session: SolveSession, with currentIDs: [UUID]) -> SolveSession {
         let currentSet = Set(currentIDs)
         var updated = session

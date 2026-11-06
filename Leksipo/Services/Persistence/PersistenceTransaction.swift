@@ -82,9 +82,11 @@ extension PersistenceTransaction {
                                lastReviewDate: card.lastReviewDate, groupIDs: [])
         let groups = card.groups
         let recovery = card.srsRecoveryPending
+        let relearning = card.srsRelearningPending
         let learning = card.learningLanguageCode, translation = card.translationLanguageCode
         remember(card) {
             card.srsRecoveryPending = recovery
+            card.srsRelearningPending = relearning
             card.learningLanguageCode = learning
             card.translationLanguageCode = translation
             card.id = value.id

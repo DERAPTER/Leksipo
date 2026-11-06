@@ -74,7 +74,7 @@ struct SRSAlgorithmTests {
         #expect(abs(p.easeFactor - 2.5) < 1e-9)
     }
     
-    @Test("Третий правильный (q=4): интервал = round(prev * EF) = 15")
+    @Test("Третий правильный (q=4): интервал = ceil(prev * EF) = 15")
     func thirdCorrectAnswer() {
         let p = SRSAlgorithm.predict(
             quality: 4,
@@ -83,11 +83,11 @@ struct SRSAlgorithmTests {
             currentRepetitions: 2,
             from: refDate
         )
-        #expect(p.intervalDays == 15) // round(6 * 2.5)
+        #expect(p.intervalDays == 15) // ceil(6 * 2.5)
         #expect(p.repetitions == 3)
     }
     
-    @Test("Четвёртый правильный: round(15 * 2.5) = 38 (округление вверх)")
+    @Test("Четвёртый правильный: ceil(15 * 2.5) = 38 (округление вверх)")
     func fourthCorrectAnswer() {
         let p = SRSAlgorithm.predict(
             quality: 4,
@@ -304,5 +304,43 @@ struct SRSAlgorithmTests {
             interval = p.intervalDays
             reps = p.repetitions
         }
+    }
+}
+
+
+extension SRSAlgorithmTests {
+    @Test("Дробный интервал округляется вверх даже при дробной части меньше 0.5")
+    func fractionalIntervalRoundsUp() {
+        let prediction = SRSAlgorithm.predict(quality: 5, currentEaseFactor: 2.36,
+            currentIntervalDays: 6, currentRepetitions: 2, from: refDate)
+        #expect(prediction.intervalDays == 15) // 14.16, не 14 и не 15.36 с новым EF.
+        #expect(abs(prediction.easeFactor - 2.46) < 1e-9)
+    }
+
+    @Test("Повреждённые числа не приводят к переполнению", arguments: [Double.nan, .infinity, -.infinity, -1, Double.greatestFiniteMagnitude])
+    func extremeStateIsSafe(ease: Double) {
+        let prediction = SRSAlgorithm.predict(quality: 5, currentEaseFactor: ease,
+            currentIntervalDays: Int.max, currentRepetitions: Int.max, from: refDate)
+        #expect((1...365_000).contains(prediction.intervalDays))
+        #expect((1.3...100).contains(prediction.easeFactor))
+        #expect(prediction.repetitions == 1_000_000_000)
+        #expect(prediction.nextReviewDate > refDate)
+    }
+
+    @Test("Закрепление не увеличивает интервал, число повторений и EF", arguments: [3, 4, 5])
+    func relearningDoesNotAdvanceSchedule(quality: Int) {
+        let prediction = SRSAlgorithm.predict(quality: quality, currentEaseFactor: 2.36,
+            currentIntervalDays: 15, currentRepetitions: 3, isRelearning: true, from: refDate)
+        #expect(prediction.intervalDays == 15)
+        #expect(prediction.repetitions == 3)
+        #expect(prediction.easeFactor == 2.36)
+    }
+
+    @Test("Ошибка во время закрепления сбрасывает длинный интервал")
+    func relearningFailureResetsSchedule() {
+        let prediction = SRSAlgorithm.predict(quality: 1, currentEaseFactor: 2.36,
+            currentIntervalDays: 15, currentRepetitions: 3, isRelearning: true, from: refDate)
+        #expect(prediction.intervalDays == 1)
+        #expect(prediction.repetitions == 0)
     }
 }
